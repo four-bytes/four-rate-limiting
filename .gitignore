@@ -1,0 +1,28 @@
+# Composer
+/vendor/
+composer.lock
+
+# PHPUnit
+/coverage/
+coverage.txt
+phpunit.xml.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Rate limiter state files
+*_rate_limit_state.json
+
+# Build artifacts
+/build/
+/dist/
