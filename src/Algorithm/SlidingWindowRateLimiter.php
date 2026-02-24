@@ -32,7 +32,7 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
 
     protected function getStateKey(): string
     {
-        return 'four_rate_limit_sliding_window';
+        return 'four_rl_sw_' . $this->getCacheKeySuffix();
     }
 
     protected function hydrateState(array $data): void
@@ -73,7 +73,7 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
                 'tokens_requested' => $tokens,
                 'current_count' => count($window['requests']),
                 'limit' => $limit,
-                'oldest_request' => !empty($window['requests']) ? date('c', (int)min($window['requests'])) : null,
+                'oldest_request' => !empty($window['requests']) ? date('c', (int)$window['requests'][0]) : null,
             ]);
 
             return true;
@@ -103,6 +103,10 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
             $waitTimeMs = min($this->getWaitTime($key), 2000);
             if ($waitTimeMs > 0) {
                 usleep($waitTimeMs * 1000);
+            } else {
+                // Busy-Loop-Guard: mindestens 1ms warten wenn getWaitTime() 0 sagt
+                // aber isAllowed() trotzdem false (Race-Condition mit Refill)
+                usleep(1000);
             }
         }
 
@@ -125,7 +129,7 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
             return 0;
         }
 
-        $oldestRequest = min($window['requests']);
+        $oldestRequest = $window['requests'][0]; // Sortiert, re-indexiert durch cleanExpiredRequests
         $windowSizeSec = $this->config->getWindowSizeMs() / 1000.0;
         $expiryTime = $oldestRequest + $windowSizeSec;
         $waitTime = $expiryTime - microtime(true);
@@ -151,6 +155,16 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
         $limit = $this->getEffectiveLimit($key);
         $requestCount = count($window['requests']);
 
+        // Inline wait-time-Berechnung (vermeidet doppeltes initializeWindow/cleanExpiredRequests)
+        $waitTimeMs = 0;
+        if ($requestCount >= $limit && !empty($window['requests'])) {
+            $oldestRequest = $window['requests'][0]; // Sortiert, re-indexiert durch cleanExpiredRequests
+            $windowSizeSec = $this->config->getWindowSizeMs() / 1000.0;
+            $expiryTime = $oldestRequest + $windowSizeSec;
+            $waitTime = $expiryTime - microtime(true);
+            $waitTimeMs = max(0, (int)ceil($waitTime * 1000));
+        }
+
         return [
             'algorithm' => 'sliding_window',
             'key' => $key,
@@ -158,9 +172,9 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
             'limit' => $limit,
             'remaining' => max(0, $limit - $requestCount),
             'window_size_ms' => $this->config->getWindowSizeMs(),
-            'oldest_request' => !empty($window['requests']) ? date('c', (int)min($window['requests'])) : null,
-            'newest_request' => !empty($window['requests']) ? date('c', (int)max($window['requests'])) : null,
-            'wait_time_ms' => $this->getWaitTime($key),
+            'oldest_request' => !empty($window['requests']) ? date('c', (int)$window['requests'][0]) : null,
+            'newest_request' => !empty($window['requests']) ? date('c', (int)$window['requests'][array_key_last($window['requests'])]) : null,
+            'wait_time_ms' => $waitTimeMs,
             'last_request' => $window['last_request'] ? date('c', (int)$window['last_request']) : null,
             'is_rate_limited' => $requestCount >= $limit,
         ];
@@ -239,7 +253,7 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
 
         $originalCount = count($window['requests']);
         // TODO T-03: Bei sehr hoher Last circular buffer erwägen
-        $window['requests'] = array_filter($window['requests'], fn($timestamp) => $timestamp > $cutoff);
+        $window['requests'] = array_values(array_filter($window['requests'], fn($timestamp) => $timestamp > $cutoff));
 
         $removedCount = $originalCount - count($window['requests']);
         if ($removedCount > 0) {

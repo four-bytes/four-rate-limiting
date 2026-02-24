@@ -33,7 +33,7 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
 
     protected function getStateKey(): string
     {
-        return 'four_rate_limit_leaky_bucket';
+        return 'four_rl_lb_' . $this->getCacheKeySuffix();
     }
 
     protected function hydrateState(array $data): void
@@ -104,6 +104,10 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
             $waitTimeMs = min($this->getWaitTime($key), 1000);
             if ($waitTimeMs > 0) {
                 usleep($waitTimeMs * 1000);
+            } else {
+                // Busy-Loop-Guard: mindestens 1ms warten wenn getWaitTime() 0 sagt
+                // aber isAllowed() trotzdem false (Race-Condition mit Refill)
+                usleep(1000);
             }
         }
 
@@ -154,6 +158,15 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
         $bucket = $this->state[$key];
         $capacity = $this->getBucketCapacity($key);
 
+        // Inline wait-time-Berechnung (vermeidet doppeltes initializeBucket/processLeakage)
+        $waitTimeMs = 0;
+        $availableSpace = $capacity - $bucket['level'];
+        if ($availableSpace < 1) {
+            $tokensToLeak = 1 - $availableSpace;
+            $leakRate = $this->getEffectiveRate($key);
+            $waitTimeMs = $leakRate > 0 ? (int)ceil(($tokensToLeak / $leakRate) * 1000) : 30000;
+        }
+
         return [
             'algorithm' => 'leaky_bucket',
             'key' => $key,
@@ -161,7 +174,7 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
             'capacity' => $capacity,
             'available_space' => round($capacity - $bucket['level'], 2),
             'leak_rate_per_second' => $this->getEffectiveRate($key),
-            'wait_time_ms' => $this->getWaitTime($key),
+            'wait_time_ms' => $waitTimeMs,
             'last_leak' => date('c', (int)$bucket['last_leak']),
             'last_request' => $bucket['last_request'] ? date('c', (int)$bucket['last_request']) : null,
             'is_rate_limited' => ($bucket['level'] >= $capacity),

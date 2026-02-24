@@ -29,8 +29,14 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
             $this->loadState();
         }
 
-        // Shutdown-Handler für Batch-Flush
-        register_shutdown_function([$this, 'flushState']);
+        // Kein register_shutdown_function — Libraries sollen keine globalen Shutdown-Handler
+        // registrieren. In long-running Prozessen (Swoole, RoadRunner) wird shutdown nie aufgerufen.
+        // Stattdessen: __destruct() für automatisches Flushing, oder explizit flushState() aufrufen.
+    }
+
+    public function __destruct()
+    {
+        $this->flushState();
     }
 
     // ---------------------------------------------------------------
@@ -38,6 +44,18 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
     // ---------------------------------------------------------------
 
     abstract protected function getStateKey(): string;
+
+    /**
+     * Generiert einen eindeutigen Cache-Key-Suffix basierend auf der Config.
+     * Verhindert Key-Kollisionen bei mehreren Instanzen desselben Algorithmus.
+     */
+    protected function getCacheKeySuffix(): string
+    {
+        // Hash aus stateFile (falls vorhanden) oder rate+burst+window als Fallback
+        $identity = $this->config->getStateFile()
+            ?? sprintf('r%.4f_b%d_w%d', $this->config->getRatePerSecond(), $this->config->getBurstCapacity(), $this->config->getWindowSizeMs());
+        return substr(md5($identity), 0, 8);
+    }
 
     // ---------------------------------------------------------------
     // State-Persistence (PSR-16 Cache oder File)
@@ -60,9 +78,16 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
     protected function loadState(): void
     {
         if ($this->cache !== null) {
-            $data = $this->cache->get($this->getStateKey());
-            if (is_array($data)) {
-                $this->hydrateState($data);
+            try {
+                $data = $this->cache->get($this->getStateKey());
+                if (is_array($data)) {
+                    $this->hydrateState($data);
+                }
+            } catch (\Throwable $e) {
+                $this->logger->warning("PSR-16 Cache get() fehlgeschlagen", [
+                    'key' => $this->getStateKey(),
+                    'error' => $e->getMessage(),
+                ]);
             }
             return;
         }
@@ -91,7 +116,20 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
         $data['timestamp'] = microtime(true);
 
         if ($this->cache !== null) {
-            $this->cache->set($this->getStateKey(), $data);
+            try {
+                $ttl = $this->config->getCleanupIntervalSeconds() * 2; // 2× Cleanup-Interval als Sicherheitspuffer
+                $success = $this->cache->set($this->getStateKey(), $data, $ttl);
+                if (!$success) {
+                    $this->logger->warning("PSR-16 Cache set() gab false zurück", [
+                        'key' => $this->getStateKey(),
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                $this->logger->warning("PSR-16 Cache set() fehlgeschlagen", [
+                    'key' => $this->getStateKey(),
+                    'error' => $e->getMessage(),
+                ]);
+            }
             return;
         }
 
@@ -220,6 +258,21 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
         $result = [];
         foreach (array_keys($this->state) as $key) {
             $result[$key] = $this->getStatus($key);
+        }
+        return $result;
+    }
+
+    public function getTypedStatus(string $key): RateLimitStatus
+    {
+        $raw = $this->getStatus($key);
+        return RateLimitStatus::fromArray($raw['algorithm'] ?? 'unknown', $key, $raw);
+    }
+
+    public function getAllTypedStatuses(): array
+    {
+        $result = [];
+        foreach (array_keys($this->state) as $key) {
+            $result[$key] = $this->getTypedStatus($key);
         }
         return $result;
     }

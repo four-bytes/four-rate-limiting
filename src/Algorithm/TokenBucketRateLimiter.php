@@ -31,7 +31,7 @@ class TokenBucketRateLimiter extends AbstractRateLimiter
 
     protected function getStateKey(): string
     {
-        return 'four_rate_limit_token_bucket';
+        return 'four_rl_tb_' . $this->getCacheKeySuffix();
     }
 
     public function isAllowed(string $key, int $tokens = 1): bool
@@ -76,6 +76,10 @@ class TokenBucketRateLimiter extends AbstractRateLimiter
             $waitTimeMs = min($this->getWaitTime($key), 1000);
             if ($waitTimeMs > 0) {
                 usleep($waitTimeMs * 1000);
+            } else {
+                // Busy-Loop-Guard: mindestens 1ms warten wenn getWaitTime() 0 sagt
+                // aber isAllowed() trotzdem false (Race-Condition mit Refill)
+                usleep(1000);
             }
         }
 
@@ -121,13 +125,21 @@ class TokenBucketRateLimiter extends AbstractRateLimiter
 
         $bucket = $this->state[$key];
 
+        // Inline wait-time-Berechnung (vermeidet doppeltes initializeBucket/refillBucket)
+        $waitTimeMs = 0;
+        if ($bucket['tokens'] < 1) {
+            $tokensNeeded = 1 - $bucket['tokens'];
+            $refillRate = $this->getEffectiveRate($key);
+            $waitTimeMs = $refillRate > 0 ? (int)ceil(($tokensNeeded / $refillRate) * 1000) : 30000;
+        }
+
         return [
             'algorithm' => 'token_bucket',
             'key' => $key,
             'tokens_available' => round($bucket['tokens'], 2),
             'capacity' => $bucket['capacity'],
             'rate_per_second' => $this->getEffectiveRate($key),
-            'wait_time_ms' => $this->getWaitTime($key),
+            'wait_time_ms' => $waitTimeMs,
             'last_refill' => date('c', (int)$bucket['last_refill']),
             'last_request' => $bucket['last_request'] ? date('c', (int)$bucket['last_request']) : null,
             'is_rate_limited' => $bucket['tokens'] < 1,
