@@ -35,7 +35,7 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
 
     protected function getStateKey(): string
     {
-        return 'four_rate_limit_fixed_window';
+        return 'four_rl_fw_' . $this->getCacheKeySuffix();
     }
 
     protected function hydrateState(array $data): void
@@ -103,6 +103,10 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
             $waitTimeMs = min($this->getWaitTime($key), 5000);
             if ($waitTimeMs > 0) {
                 usleep(min($waitTimeMs * 1000, 1000000));
+            } else {
+                // Busy-Loop-Guard: mindestens 1ms warten wenn getWaitTime() 0 sagt
+                // aber isAllowed() trotzdem false (Race-Condition mit Refill)
+                usleep(1000);
             }
         }
 
@@ -147,6 +151,13 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
         $window = $this->state[$key];
         $limit = $this->getEffectiveLimit($key);
 
+        // Inline wait-time-Berechnung (vermeidet doppeltes initializeWindow/checkWindowReset)
+        $waitTimeMs = 0;
+        if ($window['count'] >= $limit) {
+            $waitTime = $window['window_end'] - microtime(true);
+            $waitTimeMs = max(0, (int)ceil($waitTime * 1000));
+        }
+
         return [
             'algorithm' => 'fixed_window',
             'key' => $key,
@@ -156,7 +167,7 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
             'window_start' => date('c', (int)$window['window_start']),
             'window_end' => date('c', (int)$window['window_end']),
             'window_size_ms' => $this->config->getWindowSizeMs(),
-            'wait_time_ms' => $this->getWaitTime($key),
+            'wait_time_ms' => $waitTimeMs,
             'last_request' => $window['last_request'] ? date('c', (int)$window['last_request']) : null,
             'is_rate_limited' => $window['count'] >= $limit,
         ];

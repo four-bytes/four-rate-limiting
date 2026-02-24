@@ -81,4 +81,18 @@ interface RateLimiterInterface
      * @return int Anzahl gelöschter Keys
      */
     public function cleanup(int $maxAgeSeconds = 3600): int;
+
+    /**
+     * Gibt den typisierten Rate-Limit-Status als DTO zurück.
+     *
+     * @param string $key Eindeutiger Bezeichner der rate-limitierten Ressource
+     */
+    public function getTypedStatus(string $key): \Four\RateLimit\RateLimitStatus;
+
+    /**
+     * Gibt typisierte Status aller bekannten Keys zurück.
+     *
+     * @return array<string, \Four\RateLimit\RateLimitStatus>
+     */
+    public function getAllTypedStatuses(): array;
 }

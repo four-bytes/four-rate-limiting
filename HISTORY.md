@@ -1,6 +1,25 @@
 # HISTORY
 
 
+## [1.2.1] — 2026-02-25
+
+### Kritische Fixes (Code-Review)
+- **#1** `register_shutdown_function` → `__destruct()` — Libraries registrieren keine globalen Shutdown-Handler mehr (long-running Prozess-kompatibel: Swoole, RoadRunner)
+- **#2** PSR-16 `set()` nutzt jetzt TTL (`cleanupIntervalSeconds × 2`) statt ewig im Cache zu bleiben
+- **#3** Cache-Keys sind Config-spezifisch (`four_rl_tb_<hash>`) — keine Key-Kollisionen bei mehreren Instanzen
+- **#4** `SlidingWindowRateLimiter::cleanExpiredRequests()` — `array_values()` nach `array_filter()` verhindert Sparse-Arrays
+- **#5/#6** PSR-16 Exception-Handling: `get()`/`set()` in try/catch, Return-Value-Prüfung bei `set()`
+- **#10** `waitForAllowed()` Busy-Loop-Guard: mindestens 1ms Sleep wenn `getWaitTime()` 0 zurückgibt
+
+### Performance
+- **#11** `getStatus()` inline wait-time-Berechnung (vermeidet doppeltes `initializeBucket`/`refillBucket`)
+- **#12** `SlidingWindowRateLimiter`: `[0]`/`array_key_last()` statt `min()`/`max()` — O(1) statt O(n)
+
+### Validierung & API
+- **#13** `cleanupIntervalSeconds` Validierung (>= 1) in `RateLimitConfiguration`
+- **#14** `getTypedStatus()` + `getAllTypedStatuses()` — `RateLimitStatus` DTO im Interface integriert
+- `suggest`-Block in `composer.json` für PSR-16 Cache-Implementierungen (symfony/cache, phpfastcache)
+
 ## [1.2.0] — 2026-02-25
 
 ### Kritische Bugfixes

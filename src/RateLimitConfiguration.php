@@ -58,6 +58,9 @@ class RateLimitConfiguration
         if ($this->windowSizeMs <= 0) {
             throw new \InvalidArgumentException("windowSizeMs muss > 0 sein, {$this->windowSizeMs} gegeben.");
         }
+        if ($this->cleanupIntervalSeconds < 1) {
+            throw new \InvalidArgumentException("cleanupIntervalSeconds muss >= 1 sein, {$this->cleanupIntervalSeconds} gegeben.");
+        }
     }
 
     public function getAlgorithm(): string
