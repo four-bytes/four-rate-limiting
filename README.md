@@ -1,312 +1,243 @@
-# Four Rate Limiting Library
+# four-rate-limiting
 
 [![PHP Version](https://img.shields.io/badge/php-^8.1-blue.svg)](https://packagist.org/packages/four-bytes/four-rate-limiting)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Production-ready rate limiting library for PHP APIs with **marketplace-specific presets**. 
+Generische Rate-Limiting-Library für PHP 8.1+. Vier Algorithmen, Header-basiertes dynamisches Tracking, State Persistence.
 
-This library was extracted from a high-volume e-commerce marketplace synchronization system that processes millions of API requests daily across Amazon, eBay, Discogs, TikTok Shop, and other platforms.
+## Philosophie
 
-## ✨ Features
+Die Library stellt **keine fertigen Marketplace-Presets** bereit. Jeder API-Client kennt seine eigenen Rate-Limit-Regeln am besten — die Konfiguration gehört in den jeweiligen Client, nicht in eine generische Library.
 
-- **🏪 Marketplace Presets**: Pre-configured rate limiters for major e-commerce platforms
-- **🔄 Multiple Algorithms**: Token bucket, fixed window, sliding window, leaky bucket
-- **📊 Dynamic Rate Limiting**: Automatically adjusts based on API response headers
-- **🛡️ Safety Buffers**: Built-in safety margins to prevent API violations
-- **💾 State Persistence**: Persistent rate limiting state across requests
-- **📈 Endpoint-Specific Limits**: Different limits for different API endpoints
-- **🚀 Production Tested**: Battle-tested in high-volume production environments
-
-## 🚀 Quick Start
-
-### Installation
+## Installation
 
 ```bash
 composer require four-bytes/four-rate-limiting
 ```
 
-### Basic Usage
+## Schnellstart
 
 ```php
 use Four\RateLimit\RateLimiterFactory;
+use Four\RateLimit\RateLimitConfiguration;
+
+$config = new RateLimitConfiguration(
+    algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
+    ratePerSecond: 5.0,
+    burstCapacity: 10,
+);
 
 $factory = new RateLimiterFactory();
+$limiter = $factory->create($config);
 
-// Create Amazon SP-API rate limiter with production-tested settings
-$amazonLimiter = $factory->createForMarketplace('amazon');
-
-$key = 'amazon.orders.seller123';
-if ($amazonLimiter->isAllowed($key)) {
-    // Make your Amazon API call
-    echo "API call allowed!";
-} else {
-    $waitTime = $amazonLimiter->getWaitTime($key);
-    echo "Rate limited - wait {$waitTime}ms";
+if ($limiter->isAllowed('my-api')) {
+    // Request ausführen
 }
+
+// Nach dem Request: Headers auswerten
+$limiter->updateFromHeaders('my-api', $response->getHeaders());
 ```
 
-## 🏪 Supported Marketplaces
+## Algorithmen
 
-### Amazon SP-API
+| Algorithmus | Konstante | Wann verwenden |
+|-------------|-----------|----------------|
+| Token Bucket | `ALGORITHM_TOKEN_BUCKET` | Burst erlaubt, glatter Durchschnitt |
+| Fixed Window | `ALGORITHM_FIXED_WINDOW` | Festes Zeitfenster (z.B. pro Minute) |
+| Sliding Window | `ALGORITHM_SLIDING_WINDOW` | Rollendes Fenster (z.B. QPD ohne Midnight-Reset) |
+| Leaky Bucket | `ALGORITHM_LEAKY_BUCKET` | Gleichmäßiger Durchfluss, kein Burst |
+
+## Konfiguration
+
 ```php
-$amazonLimiter = $factory->createForMarketplace('amazon');
-```
-- **Algorithm**: Token bucket with burst capacity
-- **Limits**: 10 requests/second, burst up to 20
-- **Endpoint-Specific**: Orders (1/min), Listings (5/sec), Reports (1/45sec)
-- **Dynamic Updates**: Responds to `x-amzn-RateLimit-*` headers
-
-### eBay Trading API
-```php
-$ebayLimiter = $factory->createForMarketplace('ebay');  
-```
-- **Algorithm**: Fixed window (daily limits)
-- **Limits**: 5,000 requests/day, 10,000/hour for orders
-- **Headers**: Tracks `X-eBay-API-Analytics-*` headers
-
-### Discogs API
-```php
-$discogsLimiter = $factory->createForMarketplace('discogs');
-```
-- **Algorithm**: Sliding window
-- **Limits**: 60 requests/minute
-- **Headers**: Responds to `X-Discogs-Ratelimit-*` headers
-
-### TikTok Shop API
-```php
-$tiktokLimiter = $factory->createForMarketplace('tiktok-shop');
-```
-- **Algorithm**: Token bucket
-- **Endpoint Limits**: Products (10/sec), Orders (5/sec), Finance (1/sec)
-
-### Bandcamp (Conservative)
-```php
-$bandcampLimiter = $factory->createForMarketplace('bandcamp');
-```
-- **Algorithm**: Leaky bucket
-- **Limits**: Very conservative (0.5/sec) for unofficial APIs
-
-## 🔧 Advanced Usage
-
-### Custom Rate Limiter
-```php
-$customLimiter = $factory->createCustom(
-    algorithm: 'token_bucket',
-    ratePerSecond: 5.0,
-    burstCapacity: 20,
-    safetyBuffer: 0.8,
-    endpointLimits: [
-        'search' => 10.0,     // 10 requests/second for search
-        'upload' => 1.0,      // 1 request/second for uploads
-    ]
+new RateLimitConfiguration(
+    algorithm: string,        // Algorithmus-Konstante
+    ratePerSecond: float,     // Durchschnittliche Rate
+    burstCapacity: int,       // Max. gleichzeitige Requests
+    safetyBuffer: float,      // 0.0–1.0, Standard: 0.8
+    endpointLimits: array,    // Endpoint-spezifische Overrides
+    headerMappings: array,    // Response-Header → interne Felder
+    windowSizeMs: int,        // Fenstergröße in ms
+    persistState: bool,       // State über Requests persistieren
+    stateFile: ?string,       // Pfad zur State-Datei
 );
 ```
 
-### Dynamic Rate Limiting from Headers
+## Interface
+
 ```php
-// Update rate limits based on API response headers
-$apiHeaders = [
-    'x-amzn-RateLimit-Limit' => '25',
-    'x-amzn-RateLimit-Remaining' => '20'
-];
-
-$amazonLimiter->updateFromHeaders($key, $apiHeaders);
-```
-
-### Wait for Rate Limit
-```php
-// Wait up to 30 seconds for rate limit to allow request
-$allowed = $limiter->waitForAllowed($key, $tokens = 1, $maxWaitMs = 30000);
-
-if ($allowed) {
-    // Make your API call
-} else {
-    // Handle timeout
+interface RateLimiterInterface {
+    public function isAllowed(string $key, int $tokens = 1): bool;
+    public function waitForAllowed(string $key, int $tokens = 1, int $maxWaitMs = 30000): bool;
+    public function getWaitTime(string $key): int;
+    public function reset(string $key): void;
+    public function getStatus(string $key): array;
+    public function updateFromHeaders(string $key, array $headers): void;
 }
 ```
 
-### Rate Limit Status
+## Erweiterte Nutzung
+
+### createCustom — ohne Config-Objekt
+
 ```php
-$status = $limiter->getStatus($key);
-echo "Tokens available: " . $status['tokens'];
-echo "Capacity: " . $status['capacity']; 
-echo "Rate per second: " . $status['rate_per_second'];
+$limiter = $factory->createCustom(
+    algorithm: RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW,
+    ratePerSecond: 1.0,
+    burstCapacity: 60,
+    safetyBuffer: 0.85,
+    headerMappings: [
+        'limit'     => 'X-RateLimit-Limit',
+        'remaining' => 'X-RateLimit-Remaining',
+    ],
+    stateFile: '/tmp/my_api_state.json',
+);
 ```
 
-## 🧪 Algorithms
+### Dynamisches Tracking via Response-Headers
 
-### Token Bucket
-- **Best for**: APIs with burst allowances (like Amazon SP-API)
-- **Behavior**: Allows bursts up to capacity, then steady rate
-- **Use case**: Initial burst of requests, then sustained rate
-
-### Fixed Window  
-- **Best for**: APIs with daily/hourly limits (like eBay)
-- **Behavior**: Fixed number of requests per time window
-- **Use case**: Daily quotas, hourly limits
-
-### Sliding Window
-- **Best for**: Smooth request distribution (like Discogs)
-- **Behavior**: Distributed evenly across time window
-- **Use case**: Even distribution, no bursts
-
-### Leaky Bucket
-- **Best for**: Conservative rate limiting
-- **Behavior**: Steady, predictable request flow
-- **Use case**: Unofficial APIs, very strict limits
-
-## ⚙️ Configuration
-
-### Marketplace Preset Customization
 ```php
-use Four\RateLimit\Preset\MarketplacePresets;
-
-// Override Amazon preset settings
-$amazonConfig = MarketplacePresets::amazon([
-    'ratePerSecond' => 15.0,      // Increase rate
-    'safetyBuffer' => 0.9,        // More conservative buffer
-    'stateFile' => '/custom/path/amazon_state.json'
+$limiter->updateFromHeaders('my-api', [
+    'X-RateLimit-Limit'     => '60',
+    'X-RateLimit-Remaining' => '42',
 ]);
-
-$customAmazonLimiter = $factory->create($amazonConfig);
 ```
 
-### Environment-Specific Settings
+### Rate-Limit-Status abfragen
+
 ```php
-// Development environment - more lenient
-$devLimiter = $factory->createCustom(
-    algorithm: 'token_bucket',
-    ratePerSecond: 100.0,     // High rate for development
-    safetyBuffer: 1.0         // No safety buffer
-);
-
-// Production environment - conservative
-$prodLimiter = $factory->createForMarketplace('amazon'); // Uses safe defaults
+$status = $limiter->getStatus('my-api');
+// ['tokens' => 8, 'capacity' => 10, 'rate_per_second' => 5.0]
 ```
-
-## 📈 Production Usage
-
-### High-Volume Scenarios
-```php
-// For high-volume marketplace sync
-$limiter = $factory->createForMarketplace('amazon');
-
-// Process batch of items
-$items = getItemsToSync(); // Your items
-foreach ($items as $item) {
-    $key = "amazon.listings.{$sellerId}";
-    
-    if ($limiter->isAllowed($key)) {
-        try {
-            syncItemToAmazon($item);
-        } catch (RateLimitException $e) {
-            // Update limiter based on API response
-            $limiter->updateFromHeaders($key, $e->getHeaders());
-        }
-    } else {
-        // Queue for later or wait
-        scheduleForLater($item);
-    }
-}
-```
-
-### Error Handling
-```php
-$key = 'api.endpoint.user123';
-
-try {
-    if ($limiter->isAllowed($key)) {
-        $response = makeApiCall();
-        
-        // Update rate limiter from response headers
-        $limiter->updateFromHeaders($key, $response->getHeaders());
-    } else {
-        throw new RateLimitException('Rate limited');
-    }
-} catch (ApiException $e) {
-    if ($e->isRateLimited()) {
-        // Reset rate limiter if API indicates reset
-        $limiter->reset($key);
-    }
-    
-    throw $e;
-}
-```
-
-## 🏗️ Architecture
-
-This library follows clean architecture principles:
-
-```
-Four\RateLimit\
-├── RateLimiterInterface          # Contract for all rate limiters
-├── RateLimiterFactory            # Factory for creating rate limiters  
-├── RateLimitConfiguration        # Configuration value object
-├── Algorithm\                    # Rate limiting algorithms
-│   ├── TokenBucketRateLimiter   # Token bucket implementation
-│   ├── FixedWindowRateLimiter   # Fixed window implementation
-│   ├── SlidingWindowRateLimiter # Sliding window implementation
-│   └── LeakyBucketRateLimiter   # Leaky bucket implementation
-└── Preset\
-    └── MarketplacePresets       # Production-tested marketplace configs
-```
-
-## 🧪 Testing
-
-```bash
-# Run tests
-composer test
-
-# Run tests with coverage
-composer test-coverage
-
-# Static analysis
-composer phpstan
-
-# Code style check
-composer cs-check
-
-# Fix code style
-composer cs-fix
-```
-
-## 📊 Real-World Performance
-
-This library is battle-tested in production environments:
-
-- **✅ 5M+ API requests/day** processed reliably
-- **✅ 99.9% rate limit compliance** across all marketplaces
-- **✅ <2ms overhead** per rate limit check
-- **✅ Zero API violations** since implementation
-
-### Supported Volume
-- **Amazon SP-API**: 50,000+ requests/day per seller
-- **eBay Trading API**: 200,000+ requests/day per account  
-- **Discogs API**: 86,400 requests/day (60/minute limit)
-- **TikTok Shop API**: Variable based on endpoint
-
-## 🤝 Contributing
-
-We welcome contributions! This library was extracted from production code, so we're particularly interested in:
-
-- Additional marketplace presets
-- Algorithm improvements
-- Performance optimizations
-- Real-world usage feedback
-
-## 📄 License
-
-MIT License. See [LICENSE](LICENSE) for details.
-
-## 🏢 About 4 Bytes
-
-This library is maintained by [4 Bytes](https://4bytes.de), specialists in e-commerce marketplace integrations and high-volume API processing.
-
-**Other Libraries:**
-- `four-bytes/four-template-resolver` - Entity-based template processing
-- `four-bytes/four-marketplace-http` - HTTP client factory for marketplaces
-- `four-bytes/four-amazon-sp-api` - Enhanced Amazon SP-API wrapper
 
 ---
 
-**Production Ready** • **Battle Tested** • **Marketplace Focused**
+## Beispiel-Konfigurationen
+
+Typische Konfigurationen für bekannte APIs — als Referenz für eigene Clients.
+Die Werte direkt in den jeweiligen API-Client einbauen, nicht hier.
+
+### Etsy (Stand: Feb 2026)
+
+```php
+// QPD: 100.000/Tag Sliding Window, QPS: 150/s
+// Quelle: https://developers.etsy.com/documentation/essentials/rate-limits
+new RateLimitConfiguration(
+    algorithm: RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW,
+    ratePerSecond: 1.157,
+    burstCapacity: 150,
+    safetyBuffer: 0.9,
+    headerMappings: [
+        'limit'     => 'x-limit-per-day',
+        'remaining' => 'x-remaining-today',
+    ],
+    windowSizeMs: 86_400_000,
+    stateFile: '/tmp/etsy_rate_limit_state.json',
+);
+```
+
+### Amazon SP-API (Stand: 2025)
+
+```php
+// Restore Rate: 0.0167/s (1 req/min), Burst: 1
+// Quelle: https://developer-docs.amazon.com/sp-api/docs/usage-plans-and-rate-limits-in-the-sp-api
+new RateLimitConfiguration(
+    algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
+    ratePerSecond: 0.0167,
+    burstCapacity: 1,
+    safetyBuffer: 0.8,
+    headerMappings: [
+        'limit'     => 'x-amzn-RateLimit-Limit',
+        'remaining' => 'x-amzn-RateLimit-Remaining',
+    ],
+    stateFile: '/tmp/amazon_rate_limit_state.json',
+);
+```
+
+### eBay (Stand: 2025)
+
+```php
+// 5.000 Calls/Tag Fixed Window
+new RateLimitConfiguration(
+    algorithm: RateLimitConfiguration::ALGORITHM_FIXED_WINDOW,
+    ratePerSecond: 0.0579,
+    burstCapacity: 20,
+    safetyBuffer: 0.8,
+    windowSizeMs: 86_400_000,
+    stateFile: '/tmp/ebay_rate_limit_state.json',
+);
+```
+
+### Discogs (Stand: 2025)
+
+```php
+// 60 Requests/Minute Sliding Window (authenticated)
+// Quelle: https://www.discogs.com/developers#page:home,header:home-rate-limiting
+new RateLimitConfiguration(
+    algorithm: RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW,
+    ratePerSecond: 1.0,
+    burstCapacity: 60,
+    safetyBuffer: 0.85,
+    headerMappings: [
+        'limit'     => 'X-Discogs-Ratelimit',
+        'remaining' => 'X-Discogs-Ratelimit-Remaining',
+    ],
+    windowSizeMs: 60_000,
+    stateFile: '/tmp/discogs_rate_limit_state.json',
+);
+```
+
+### Bandcamp (Stand: 2025)
+
+```php
+// Kein offizielles Limit dokumentiert, konservativ: 1 req/s
+new RateLimitConfiguration(
+    algorithm: RateLimitConfiguration::ALGORITHM_LEAKY_BUCKET,
+    ratePerSecond: 1.0,
+    burstCapacity: 5,
+    safetyBuffer: 0.7,
+    stateFile: '/tmp/bandcamp_rate_limit_state.json',
+);
+```
+
+### TikTok Shop (Stand: 2025)
+
+```php
+// 100 Requests/10s per Access Token
+new RateLimitConfiguration(
+    algorithm: RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW,
+    ratePerSecond: 10.0,
+    burstCapacity: 100,
+    safetyBuffer: 0.8,
+    windowSizeMs: 10_000,
+    stateFile: '/tmp/tiktok_rate_limit_state.json',
+);
+```
+
+---
+
+## Architektur
+
+```
+Four\RateLimit\
+├── RateLimiterInterface          # Vertrag für alle Rate Limiter
+├── RateLimiterFactory            # Erstellt Rate Limiter aus Config
+├── RateLimitConfiguration        # Konfigurations-Value-Object
+└── Algorithm\
+    ├── TokenBucketRateLimiter    # Token-Bucket-Implementierung
+    ├── FixedWindowRateLimiter    # Fixed-Window-Implementierung
+    ├── SlidingWindowRateLimiter  # Sliding-Window-Implementierung
+    └── LeakyBucketRateLimiter    # Leaky-Bucket-Implementierung
+```
+
+## Tests
+
+```bash
+composer test
+composer phpstan
+composer cs-check
+```
+
+## Lizenz
+
+MIT License. Siehe [LICENSE](LICENSE).

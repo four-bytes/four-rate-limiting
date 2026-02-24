@@ -6,9 +6,13 @@ namespace Four\RateLimit\Tests;
 
 use Four\RateLimit\Algorithm\TokenBucketRateLimiter;
 use Four\RateLimit\RateLimitConfiguration;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
+#[CoversClass(TokenBucketRateLimiter::class)]
+#[CoversClass(\Four\RateLimit\AbstractRateLimiter::class)]
+#[CoversClass(RateLimitConfiguration::class)]
 class TokenBucketRateLimiterTest extends TestCase
 {
     private TokenBucketRateLimiter $rateLimiter;
