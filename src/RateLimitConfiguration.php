@@ -7,11 +7,19 @@ namespace Four\RateLimit;
 /**
  * Rate Limit Configuration
  *
- * Holds configuration for rate limiting including algorithm type,
- * limits, safety buffers, and marketplace-specific settings.
+ * Konfigurationsobjekt für Rate Limiting: Algorithmus, Limits,
+ * Safety Buffer, Header-Mappings und State Persistence.
  */
 class RateLimitConfiguration
 {
+    public const HEADER_LIMIT = 'limit';
+    public const HEADER_REMAINING = 'remaining';
+    public const HEADER_RESET = 'reset';
+    public const HEADER_RETRY_AFTER = 'retry_after';
+    public const HEADER_DAILY_LIMIT = 'daily_limit';
+    public const HEADER_HOURLY_LIMIT = 'hourly_limit';
+    public const HEADER_DAILY_REMAINING = 'daily_remaining';
+
     public const ALGORITHM_TOKEN_BUCKET = 'token_bucket';
     public const ALGORITHM_FIXED_WINDOW = 'fixed_window';
     public const ALGORITHM_SLIDING_WINDOW = 'sliding_window';
@@ -26,15 +34,29 @@ class RateLimitConfiguration
         private readonly array $headerMappings = [],
         private readonly int $windowSizeMs = 1000,
         private readonly bool $persistState = true,
-        private readonly ?string $stateFile = null
+        private readonly ?string $stateFile = null,
+        private readonly int $cleanupIntervalSeconds = 3600,
     ) {
         if (!in_array($this->algorithm, [
             self::ALGORITHM_TOKEN_BUCKET,
             self::ALGORITHM_FIXED_WINDOW,
             self::ALGORITHM_SLIDING_WINDOW,
-            self::ALGORITHM_LEAKY_BUCKET
+            self::ALGORITHM_LEAKY_BUCKET,
         ])) {
             throw new \InvalidArgumentException("Unsupported algorithm: {$this->algorithm}");
+        }
+
+        if ($this->ratePerSecond <= 0) {
+            throw new \InvalidArgumentException("ratePerSecond muss > 0 sein, {$this->ratePerSecond} gegeben.");
+        }
+        if ($this->burstCapacity < 1) {
+            throw new \InvalidArgumentException("burstCapacity muss >= 1 sein, {$this->burstCapacity} gegeben.");
+        }
+        if ($this->safetyBuffer <= 0.0 || $this->safetyBuffer > 1.0) {
+            throw new \InvalidArgumentException("safetyBuffer muss > 0.0 und <= 1.0 sein, {$this->safetyBuffer} gegeben.");
+        }
+        if ($this->windowSizeMs <= 0) {
+            throw new \InvalidArgumentException("windowSizeMs muss > 0 sein, {$this->windowSizeMs} gegeben.");
         }
     }
 
@@ -88,93 +110,13 @@ class RateLimitConfiguration
         return $this->stateFile;
     }
 
-    /**
-     * Create configuration for Amazon SP-API
-     */
-    public static function forAmazon(): self
+    public function getCleanupIntervalSeconds(): int
     {
-        return new self(
-            algorithm: self::ALGORITHM_TOKEN_BUCKET,
-            ratePerSecond: 10.0,
-            burstCapacity: 20,
-            safetyBuffer: 0.8,
-            endpointLimits: [
-                'orders' => 0.0167, // 1 per minute, burst 20
-                'listings' => 5.0,   // 5 per second
-                'feeds' => 0.0167,   // 1 per minute  
-                'reports' => 0.0222, // 1 per 45 seconds
-                'inventory' => 2.0,  // 2 per second
-                'fulfillment' => 2.0 // 2 per second
-            ],
-            headerMappings: [
-                'limit' => 'x-amzn-RateLimit-Limit',
-                'remaining' => 'x-amzn-RateLimit-Remaining'
-            ],
-            stateFile: '/var/amazon_rate_limit_state.json'
-        );
+        return $this->cleanupIntervalSeconds;
     }
 
     /**
-     * Create configuration for eBay Trading API
-     */
-    public static function forEbay(): self
-    {
-        return new self(
-            algorithm: self::ALGORITHM_FIXED_WINDOW,
-            ratePerSecond: 1.39, // 5000 per day = ~1.39/sec
-            burstCapacity: 10,
-            safetyBuffer: 0.9,
-            endpointLimits: [
-                'orders' => 2.78,    // 10000 per hour = ~2.78/sec
-                'inventory' => 1.39, // 5000 per day
-                'listings' => 1.39,  // 5000 per day
-            ],
-            headerMappings: [
-                'daily_limit' => 'X-eBay-API-Analytics-DAILY-LIMIT',
-                'daily_remaining' => 'X-eBay-API-Analytics-DAILY-REMAINING',
-                'hourly_limit' => 'X-eBay-API-Analytics-HOURLY-LIMIT',
-                'hourly_remaining' => 'X-eBay-API-Analytics-HOURLY-REMAINING'
-            ],
-            windowSizeMs: 86400000, // Daily window
-            stateFile: '/var/ebay_rate_limit_state.json'
-        );
-    }
-
-    /**
-     * Create configuration for Discogs API
-     */
-    public static function forDiscogs(): self
-    {
-        return new self(
-            algorithm: self::ALGORITHM_SLIDING_WINDOW,
-            ratePerSecond: 1.0, // 60 per minute = 1/sec
-            burstCapacity: 5,
-            safetyBuffer: 0.8,
-            headerMappings: [
-                'limit' => 'X-Discogs-Ratelimit',
-                'remaining' => 'X-Discogs-Ratelimit-Remaining'
-            ],
-            windowSizeMs: 60000, // 1 minute window
-            stateFile: '/var/discogs_rate_limit_state.json'
-        );
-    }
-
-    /**
-     * Create configuration for Bandcamp (conservative, unofficial API)
-     */
-    public static function forBandcamp(): self
-    {
-        return new self(
-            algorithm: self::ALGORITHM_LEAKY_BUCKET,
-            ratePerSecond: 0.5, // Very conservative
-            burstCapacity: 2,
-            safetyBuffer: 0.4,
-            stateFile: '/var/bandcamp_rate_limit_state.json'
-        );
-    }
-
-    /**
-     * Apply safety buffer to a rate limit value
+     * Safety Buffer auf einen Rate-Limit-Wert anwenden
      */
     public function applySafetyBuffer(float $limit): float
     {

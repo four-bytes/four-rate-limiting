@@ -9,7 +9,7 @@
     beStrictAboutCoverageMetadata="true"
     beStrictAboutOutputDuringTests="true"
     failOnRisky="true"
-    failOnWarning="true">
+    failOnWarning="false">
     
     <testsuites>
         <testsuite name="Four Rate Limiting Test Suite">

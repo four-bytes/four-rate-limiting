@@ -1,6 +1,7 @@
 {
     "name": "four-bytes/four-rate-limiting",
-    "description": "Production-ready rate limiting library for PHP APIs with marketplace presets",
+    "description": "Generische Rate-Limiting-Library für PHP APIs — Token Bucket, Fixed Window, Sliding Window, Leaky Bucket",
+    "version": "1.2.0",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -10,8 +11,9 @@
         }
     ],
     "require": {
-        "php": "^8.1",
-        "psr/log": "^3.0"
+        "php": "^8.4",
+        "psr/log": "^3.0",
+        "psr/simple-cache": "^3.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.0",

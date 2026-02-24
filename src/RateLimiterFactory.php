@@ -6,12 +6,13 @@ namespace Four\RateLimit;
 
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Psr\SimpleCache\CacheInterface;
 
 /**
  * Rate Limiter Factory
  *
- * Creates appropriate rate limiter instances based on configuration.
- * Supports multiple algorithms and marketplace-specific configurations.
+ * Erstellt Rate-Limiter-Instanzen anhand einer RateLimitConfiguration.
+ * Die Konfiguration gehört in den jeweiligen API-Client.
  */
 class RateLimiterFactory
 {
@@ -20,67 +21,21 @@ class RateLimiterFactory
     ) {}
 
     /**
-     * Create rate limiter from configuration
+     * Rate Limiter aus Konfiguration erstellen
      */
-    public function create(RateLimitConfiguration $config): RateLimiterInterface
+    public function create(RateLimitConfiguration $config, ?CacheInterface $cache = null): RateLimiterInterface
     {
         return match ($config->getAlgorithm()) {
-            RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET => new Algorithm\TokenBucketRateLimiter($config, $this->logger),
-            RateLimitConfiguration::ALGORITHM_FIXED_WINDOW => new Algorithm\FixedWindowRateLimiter($config, $this->logger),
-            RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW => new Algorithm\SlidingWindowRateLimiter($config, $this->logger),
-            RateLimitConfiguration::ALGORITHM_LEAKY_BUCKET => new Algorithm\LeakyBucketRateLimiter($config, $this->logger),
+            RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET => new Algorithm\TokenBucketRateLimiter($config, $this->logger, $cache),
+            RateLimitConfiguration::ALGORITHM_FIXED_WINDOW => new Algorithm\FixedWindowRateLimiter($config, $this->logger, $cache),
+            RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW => new Algorithm\SlidingWindowRateLimiter($config, $this->logger, $cache),
+            RateLimitConfiguration::ALGORITHM_LEAKY_BUCKET => new Algorithm\LeakyBucketRateLimiter($config, $this->logger, $cache),
             default => throw new \InvalidArgumentException("Unsupported rate limiter algorithm: {$config->getAlgorithm()}")
         };
     }
 
     /**
-     * Create rate limiter for Amazon SP-API
-     */
-    public function createForAmazon(): RateLimiterInterface
-    {
-        return $this->create(RateLimitConfiguration::forAmazon());
-    }
-
-    /**
-     * Create rate limiter for eBay API
-     */
-    public function createForEbay(): RateLimiterInterface
-    {
-        return $this->create(RateLimitConfiguration::forEbay());
-    }
-
-    /**
-     * Create rate limiter for Discogs API
-     */
-    public function createForDiscogs(): RateLimiterInterface
-    {
-        return $this->create(RateLimitConfiguration::forDiscogs());
-    }
-
-    /**
-     * Create rate limiter for Bandcamp API
-     */
-    public function createForBandcamp(): RateLimiterInterface
-    {
-        return $this->create(RateLimitConfiguration::forBandcamp());
-    }
-
-    /**
-     * Create marketplace-specific rate limiter by name
-     */
-    public function createForMarketplace(string $marketplace): RateLimiterInterface
-    {
-        return match (strtolower($marketplace)) {
-            'amazon' => $this->createForAmazon(),
-            'ebay' => $this->createForEbay(),  
-            'discogs' => $this->createForDiscogs(),
-            'bandcamp' => $this->createForBandcamp(),
-            default => throw new \InvalidArgumentException("Unsupported marketplace: {$marketplace}")
-        };
-    }
-
-    /**
-     * Create custom rate limiter with specific parameters
+     * Rate Limiter mit konkreten Parametern erstellen (ohne Config-Objekt)
      */
     public function createCustom(
         string $algorithm,
@@ -100,7 +55,35 @@ class RateLimiterFactory
             headerMappings: $headerMappings,
             stateFile: $stateFile
         );
-        
+
         return $this->create($config);
+    }
+
+    /**
+     * Rate Limiter mit PSR-16 Cache-Backend erstellen
+     */
+    public static function createWithCache(
+        string $algorithm,
+        float $ratePerSecond,
+        int $burstCapacity,
+        CacheInterface $cache,
+        float $safetyBuffer = 0.8,
+        array $endpointLimits = [],
+        array $headerMappings = [],
+        int $windowSizeMs = 1000,
+    ): RateLimiterInterface {
+        $config = new RateLimitConfiguration(
+            algorithm: $algorithm,
+            ratePerSecond: $ratePerSecond,
+            burstCapacity: $burstCapacity,
+            safetyBuffer: $safetyBuffer,
+            endpointLimits: $endpointLimits,
+            headerMappings: $headerMappings,
+            windowSizeMs: $windowSizeMs,
+            persistState: true,
+            stateFile: null,
+        );
+        $factory = new self();
+        return $factory->create($config, cache: $cache);
     }
 }
