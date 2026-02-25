@@ -228,6 +228,25 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
     }
 
     // ---------------------------------------------------------------
+    // PSR-7 Header-Normalisierung
+    // ---------------------------------------------------------------
+
+    /**
+     * Normalisiert PSR-7 Header-Arrays zu flachen key=>value Paaren.
+     * PSR-7: array<string, string[]> → Flat: array<string, string>
+     *
+     * Akzeptiert auch bereits flache Arrays (Rückwärtskompatibilität).
+     */
+    protected function flattenHeaders(array $headers): array
+    {
+        $flat = [];
+        foreach ($headers as $name => $value) {
+            $flat[strtolower((string) $name)] = is_array($value) ? ($value[0] ?? '') : (string) $value;
+        }
+        return $flat;
+    }
+
+    // ---------------------------------------------------------------
     // Cleanup
     // ---------------------------------------------------------------
 

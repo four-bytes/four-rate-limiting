@@ -1,5 +1,19 @@
 # HISTORY
 
+## [1.3.0] — 2026-02-25
+
+### HTTP-Client-Integration
+- `Four\RateLimit\Http\RateLimitMiddleware` — PSR-18-kompatible Middleware für API-Clients
+  - Pre-Request: `waitForAllowed()` Token verbrauchen
+  - Post-Response: `updateFromHeaders()` Header-State synchronisieren
+  - 429 Retry: Exponential Backoff mit konfigurierbaren maxRetries/backoffMultiplier
+  - `parseRetryAfter()` für Sekunden und HTTP-Date-Format
+- `Four\RateLimit\Exception\RateLimitExceededException` — Library-eigene Exception
+
+### PSR-7 Header-Kompatibilität
+- `flattenHeaders()` in AbstractRateLimiter — normalisiert PSR-7 `string[]` → `string` automatisch
+- Alle 4 Algorithmen rufen `flattenHeaders()` in `updateFromHeaders()` auf
+- `psr/http-message: ^2.0` als Dependency
 
 ## [1.2.1] — 2026-02-25
 
@@ -51,3 +65,10 @@
 - Presets als Beispiel-Konfigurationen in README.md dokumentiert (Etsy, Amazon, eBay, Discogs, Bandcamp, TikTok Shop)
 - Tests auf direkte RateLimitConfiguration-Instanzen umgestellt (kein Preset-Aufruf mehr)
 - Philosophie: Konfiguration gehört in den jeweiligen API-Client, nicht in die generische Library
+## [1.3.0] — 2026-02-25
+### HTTP-Client-Integration
+- **PSR-7 Header-Flattening**: `flattenHeaders()` in `AbstractRateLimiter` — normalisiert `array<string, string[]>` zu `array<string, string>`
+- Alle 4 Algorithmen (`TokenBucket`, `LeakyBucket`, `SlidingWindow`, `FixedWindow`): `updateFromHeaders()` ruft `flattenHeaders()` am Anfang auf
+- **`RateLimitExceededException`** (`src/Exception/`) — neue Exception mit `key`, `waitTimeMs`, `maxWaitMs` Properties
+- **`RateLimitMiddleware`** (`src/Http/`) — PSR-18-kompatible Middleware: Pre-Request waitForAllowed, Post-Response Header-Update, 429-Retry mit Exponential Backoff
+- `psr/http-message: ^2.0` als neue Pflicht-Dependency (für `ResponseInterface`)
