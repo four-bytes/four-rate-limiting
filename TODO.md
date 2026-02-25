@@ -149,3 +149,25 @@
 ## ✅ Erledigt in 1.2.0 (2026-02-25)
 
 Alle 19 Tasks abgeschlossen. Siehe HISTORY.md für Details.
+
+## ✅ Erledigt in 1.2.1 (2026-02-25)
+
+14 Code-Review-Issues behoben:
+- #1 `register_shutdown_function` → `__destruct()` (long-running Prozess-kompatibel)
+- #2 PSR-16 TTL + Exception-Handling + Return-Value-Prüfung
+- #3 Config-spezifische Cache-Keys (md5 Hash-Suffix)
+- #4 SlidingWindow `array_values()` nach `array_filter()`
+- #5/#6 PSR-16 Exception-Handling in get()/set()
+- #10 `waitForAllowed()` Busy-Loop-Guard (min. 1ms Sleep)
+- #11 `getStatus()` Inline Wait-Time-Berechnung
+- #12 SlidingWindow O(1) min/max statt O(n)
+- #13 `cleanupIntervalSeconds >= 1` Validierung
+- #14 `getTypedStatus()` + `getAllTypedStatuses()` via DTO
+
+## ✅ Erledigt in 1.3.0 (2026-02-25)
+
+HTTP-Client-Integration:
+- `RateLimitMiddleware` — PSR-18-kompatible Middleware (Pre-Request, Post-Response, 429-Retry)
+- `RateLimitExceededException` — Library-eigene Exception
+- `flattenHeaders()` — PSR-7 `string[]` → `string` Normalisierung in allen Algorithmen
+- `psr/http-message: ^2.0` als Dependency
