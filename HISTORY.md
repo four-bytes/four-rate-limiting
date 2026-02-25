@@ -59,16 +59,11 @@
 - PHP 8.4 als Mindestanforderung gesetzt (`composer.json`)
 - Neue Testklassen: `AbstractRateLimiterTest`, `RateLimitConfigurationTest` (46 Tests gesamt)
 - `psr/simple-cache: ^3.0` als neue Dependency
+
 ## [1.1.0] — 2026-02-25
 - Marketplace-Presets aus Code entfernt (MarketplacePresets.php, forAmazon/forEbay/forDiscogs/forBandcamp in Factory + Config)
 - createForAmazon/createForEbay/createForDiscogs/createForBandcamp/createForMarketplace aus RateLimiterFactory entfernt
 - Presets als Beispiel-Konfigurationen in README.md dokumentiert (Etsy, Amazon, eBay, Discogs, Bandcamp, TikTok Shop)
 - Tests auf direkte RateLimitConfiguration-Instanzen umgestellt (kein Preset-Aufruf mehr)
 - Philosophie: Konfiguration gehört in den jeweiligen API-Client, nicht in die generische Library
-## [1.3.0] — 2026-02-25
-### HTTP-Client-Integration
-- **PSR-7 Header-Flattening**: `flattenHeaders()` in `AbstractRateLimiter` — normalisiert `array<string, string[]>` zu `array<string, string>`
-- Alle 4 Algorithmen (`TokenBucket`, `LeakyBucket`, `SlidingWindow`, `FixedWindow`): `updateFromHeaders()` ruft `flattenHeaders()` am Anfang auf
-- **`RateLimitExceededException`** (`src/Exception/`) — neue Exception mit `key`, `waitTimeMs`, `maxWaitMs` Properties
-- **`RateLimitMiddleware`** (`src/Http/`) — PSR-18-kompatible Middleware: Pre-Request waitForAllowed, Post-Response Header-Update, 429-Retry mit Exponential Backoff
-- `psr/http-message: ^2.0` als neue Pflicht-Dependency (für `ResponseInterface`)
+
