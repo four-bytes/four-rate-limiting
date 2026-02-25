@@ -175,6 +175,7 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
 
     public function updateFromHeaders(string $key, array $headers): void
     {
+        $headers = $this->flattenHeaders($headers);
         $headerMappings = $this->config->getHeaderMappings();
         $updated = false;
 

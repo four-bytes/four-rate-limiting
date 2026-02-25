@@ -183,6 +183,7 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
 
     public function updateFromHeaders(string $key, array $headers): void
     {
+        $headers = $this->flattenHeaders($headers);
         $headerMappings = $this->config->getHeaderMappings();
 
         if (!empty($headerMappings[RateLimitConfiguration::HEADER_LIMIT]) && isset($headers[$headerMappings[RateLimitConfiguration::HEADER_LIMIT]])) {
