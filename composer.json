@@ -1,7 +1,6 @@
 {
     "name": "four-bytes/four-rate-limiting",
     "description": "Generische Rate-Limiting-Library für PHP APIs — Token Bucket, Fixed Window, Sliding Window, Leaky Bucket",
-    "version": "1.3.0",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -45,5 +44,7 @@
     },
     "config": {
         "sort-packages": true
-    }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }
