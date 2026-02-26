@@ -1,6 +1,6 @@
 {
     "name": "four-bytes/four-rate-limiting",
-    "description": "Generische Rate-Limiting-Library für PHP APIs — Token Bucket, Fixed Window, Sliding Window, Leaky Bucket",
+    "description": "Generic rate limiting library for PHP APIs — Token Bucket, Fixed Window, Sliding Window, Leaky Bucket",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -16,9 +16,9 @@
         "psr/simple-cache": "^3.0"
     },
     "suggest": {
-        "symfony/cache": "PSR-16 Implementierung für Redis/Memcached/APCu",
-        "phpfastcache/phpfastcache": "Alternative PSR-16 Implementierung",
-        "psr/http-message": "^2.0 — Für RateLimitMiddleware (HTTP-Integration)"
+        "symfony/cache": "PSR-16 implementation for Redis/Memcached/APCu (e.g. symfony/cache)",
+        "phpfastcache/phpfastcache": "Alternative PSR-16 implementation",
+        "psr/http-message": "For RateLimitMiddleware HTTP integration"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.0",

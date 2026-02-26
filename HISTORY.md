@@ -2,68 +2,67 @@
 
 ## [1.3.0] — 2026-02-25
 
-### HTTP-Client-Integration
-- `Four\RateLimit\Http\RateLimitMiddleware` — PSR-18-kompatible Middleware für API-Clients
-  - Pre-Request: `waitForAllowed()` Token verbrauchen
-  - Post-Response: `updateFromHeaders()` Header-State synchronisieren
-  - 429 Retry: Exponential Backoff mit konfigurierbaren maxRetries/backoffMultiplier
-  - `parseRetryAfter()` für Sekunden und HTTP-Date-Format
-- `Four\RateLimit\Exception\RateLimitExceededException` — Library-eigene Exception
+### HTTP Client Integration
+- `Four\RateLimit\Http\RateLimitMiddleware` — PSR-18 compatible middleware for API clients
+  - Pre-request: consume token via `waitForAllowed()`
+  - Post-response: synchronize header state via `updateFromHeaders()`
+  - 429 retry: exponential backoff with configurable maxRetries/backoffMultiplier
+  - `parseRetryAfter()` for seconds and HTTP date format
+- `Four\RateLimit\Exception\RateLimitExceededException` — library-own exception
 
-### PSR-7 Header-Kompatibilität
-- `flattenHeaders()` in AbstractRateLimiter — normalisiert PSR-7 `string[]` → `string` automatisch
-- Alle 4 Algorithmen rufen `flattenHeaders()` in `updateFromHeaders()` auf
-- `psr/http-message: ^2.0` als Dependency
+### PSR-7 Header Compatibility
+- `flattenHeaders()` in AbstractRateLimiter — normalizes PSR-7 `string[]` → `string` automatically
+- All 4 algorithms call `flattenHeaders()` in `updateFromHeaders()`
+- `psr/http-message: ^2.0` added as dependency
 
 ## [1.2.1] — 2026-02-25
 
-### Kritische Fixes (Code-Review)
-- **#1** `register_shutdown_function` → `__destruct()` — Libraries registrieren keine globalen Shutdown-Handler mehr (long-running Prozess-kompatibel: Swoole, RoadRunner)
-- **#2** PSR-16 `set()` nutzt jetzt TTL (`cleanupIntervalSeconds × 2`) statt ewig im Cache zu bleiben
-- **#3** Cache-Keys sind Config-spezifisch (`four_rl_tb_<hash>`) — keine Key-Kollisionen bei mehreren Instanzen
-- **#4** `SlidingWindowRateLimiter::cleanExpiredRequests()` — `array_values()` nach `array_filter()` verhindert Sparse-Arrays
-- **#5/#6** PSR-16 Exception-Handling: `get()`/`set()` in try/catch, Return-Value-Prüfung bei `set()`
-- **#10** `waitForAllowed()` Busy-Loop-Guard: mindestens 1ms Sleep wenn `getWaitTime()` 0 zurückgibt
+### Critical Fixes (Code Review)
+- **#1** `register_shutdown_function` → `__destruct()` — libraries no longer register global shutdown handlers (long-running process compatible: Swoole, RoadRunner)
+- **#2** PSR-16 `set()` now uses TTL (`cleanupIntervalSeconds × 2`) instead of persisting indefinitely
+- **#3** Cache keys are config-specific (`four_rl_tb_<hash>`) — no key collisions between multiple instances
+- **#4** `SlidingWindowRateLimiter::cleanExpiredRequests()` — `array_values()` after `array_filter()` prevents sparse arrays
+- **#5/#6** PSR-16 exception handling: `get()`/`set()` wrapped in try/catch, return value checked for `set()`
+- **#10** `waitForAllowed()` busy-loop guard: minimum 1ms sleep when `getWaitTime()` returns 0
 
 ### Performance
-- **#11** `getStatus()` inline wait-time-Berechnung (vermeidet doppeltes `initializeBucket`/`refillBucket`)
-- **#12** `SlidingWindowRateLimiter`: `[0]`/`array_key_last()` statt `min()`/`max()` — O(1) statt O(n)
+- **#11** `getStatus()` inline wait-time calculation (avoids double `initializeBucket`/`refillBucket`)
+- **#12** `SlidingWindowRateLimiter`: `[0]`/`array_key_last()` instead of `min()`/`max()` — O(1) instead of O(n)
 
-### Validierung & API
-- **#13** `cleanupIntervalSeconds` Validierung (>= 1) in `RateLimitConfiguration`
-- **#14** `getTypedStatus()` + `getAllTypedStatuses()` — `RateLimitStatus` DTO im Interface integriert
-- `suggest`-Block in `composer.json` für PSR-16 Cache-Implementierungen (symfony/cache, phpfastcache)
+### Validation & API
+- **#13** `cleanupIntervalSeconds` validation (>= 1) in `RateLimitConfiguration`
+- **#14** `getTypedStatus()` + `getAllTypedStatuses()` — `RateLimitStatus` DTO integrated into interface
+- `suggest` block in `composer.json` for PSR-16 cache implementations (symfony/cache, phpfastcache)
 
 ## [1.2.0] — 2026-02-25
 
-### Kritische Bugfixes
-- **C-01** Race Conditions: atomic write via temp-file + PID, dirty-flag verhindert 1000x I/O/s
-- **C-02** Input-Validierung: `RateLimitConfiguration` wirft `\InvalidArgumentException` bei ungültigen Werten
-- **C-03** TokenBucket: `capacity`-Bug behoben — `burstCapacity` ist jetzt korrekt die Obergrenze
-- **C-04** Path Traversal: `getStateFilePath()` normalisiert Pfade + Whitelist-Check
+### Critical Bug Fixes
+- **C-01** Race conditions: atomic write via temp-file + PID, dirty-flag prevents 1000x I/O/s
+- **C-02** Input validation: `RateLimitConfiguration` throws `\InvalidArgumentException` on invalid values
+- **C-03** TokenBucket: `capacity` bug fixed — `burstCapacity` is now correctly the upper limit
+- **C-04** Path traversal: `getStateFilePath()` normalizes paths + whitelist check
 
 ### Refactoring / Technical Debt
-- **T-01** `AbstractRateLimiter` Basisklasse eingeführt — ~400 Zeilen Duplikation eliminiert
-- **T-02** `RateLimitStatus` readonly DTO hinzugefügt (typisierter Status-Rückgabewert)
-- **T-04** FixedWindow: PHPDoc-Warnung zum Bunny-Hop-Problem ergänzt
-- **T-05** LeakyBucket: Start-Verhalten dokumentiert (level=0 = sofort erlaubt)
-- **T-06** `cleanupIntervalSeconds` als konfigurierbarer Parameter in `RateLimitConfiguration`
+- **T-01** `AbstractRateLimiter` base class introduced — ~400 lines of duplication eliminated
+- **T-02** `RateLimitStatus` readonly DTO added (typed status return value)
+- **T-04** FixedWindow: PHPDoc warning added for the thundering herd problem
+- **T-05** LeakyBucket: start behavior documented (level=0 = allowed immediately)
+- **T-06** `cleanupIntervalSeconds` as configurable parameter in `RateLimitConfiguration`
 
-### Neue Features
-- **F-01** PSR-16 (`psr/simple-cache`) als optionaler Persistence-Backend (Redis, APCu, Memcached)
-- **F-02** `resetAll()`, `getAllStatuses()`, `cleanup()` zum Interface und AbstractRateLimiter hinzugefügt
-- **F-03** Header-Konstanten (`HEADER_LIMIT`, `HEADER_REMAINING` etc.) in `RateLimitConfiguration`
-- `RateLimiterFactory::createWithCache()` für PSR-16-Backends
+### New Features
+- **F-01** PSR-16 (`psr/simple-cache`) as optional persistence backend (Redis, APCu, Memcached)
+- **F-02** `resetAll()`, `getAllStatuses()`, `cleanup()` added to interface and AbstractRateLimiter
+- **F-03** Header constants (`HEADER_LIMIT`, `HEADER_REMAINING` etc.) in `RateLimitConfiguration`
+- `RateLimiterFactory::createWithCache()` for PSR-16 backends
 
-### Tests & Infrastruktur
-- PHP 8.4 als Mindestanforderung gesetzt (`composer.json`)
-- Neue Testklassen: `AbstractRateLimiterTest`, `RateLimitConfigurationTest` (46 Tests gesamt)
-- `psr/simple-cache: ^3.0` als neue Dependency
+### Tests & Infrastructure
+- PHP 8.4 set as minimum requirement (`composer.json`)
+- New test classes: `AbstractRateLimiterTest`, `RateLimitConfigurationTest` (46 tests total)
+- `psr/simple-cache: ^3.0` added as dependency
 
 ## [1.1.0] — 2026-02-25
-- Marketplace-Presets aus Code entfernt (MarketplacePresets.php, forAmazon/forEbay/forDiscogs/forBandcamp in Factory + Config)
-- createForAmazon/createForEbay/createForDiscogs/createForBandcamp/createForMarketplace aus RateLimiterFactory entfernt
-- Presets als Beispiel-Konfigurationen in README.md dokumentiert (Etsy, Amazon, eBay, Discogs, Bandcamp, TikTok Shop)
-- Tests auf direkte RateLimitConfiguration-Instanzen umgestellt (kein Preset-Aufruf mehr)
-- Philosophie: Konfiguration gehört in den jeweiligen API-Client, nicht in die generische Library
+
+- Removed API-specific presets from library code — configuration belongs in the consuming client
+- `RateLimiterFactory` simplified — no more preset factory methods
+- Tests updated to use `RateLimitConfiguration` directly
 
