@@ -13,11 +13,11 @@ use Psr\SimpleCache\CacheInterface;
 /**
  * Leaky Bucket Rate Limiter
  *
- * Implementiert den Leaky-Bucket-Algorithmus für sehr gleichmäßiges Rate Limiting.
- * Requests "lecken" mit konstanter Rate heraus. Ideal für konservative APIs wie Bandcamp.
- * Bietet das gleichmäßigste Traffic-Shaping.
+ * Implements the leaky bucket algorithm for very steady rate limiting.
+ * Requests "leak" out at a constant rate. Ideal for conservative APIs like Bandcamp.
+ * Provides the most even traffic shaping.
  *
- * Bucket startet leer (level=0), erste Requests sind sofort erlaubt bis zur Kapazität.
+ * The bucket starts empty (level=0); the first requests are allowed immediately up to capacity.
  *
  * $this->state[$key] = ['level' => float, 'last_leak' => float, 'last_request' => ?float]
  */
@@ -38,10 +38,10 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
 
     protected function hydrateState(array $data): void
     {
-        // Rückwärtskompatibilität: alte State-Dateien nutzen 'buckets', neue 'state'
+        // Backward compatibility: old state files use 'buckets', new ones 'state'
         $this->state = $data['buckets'] ?? $data['state'] ?? [];
         $this->dynamicLimits = $data['dynamic_limits'] ?? [];
-        // Leakage für alle Buckets nachholen (um Downtime zu berücksichtigen)
+        // Catch up leakage for all buckets (to account for downtime)
         foreach (array_keys($this->state) as $key) {
             $this->processLeakage($key);
         }
@@ -105,8 +105,8 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
             if ($waitTimeMs > 0) {
                 usleep($waitTimeMs * 1000);
             } else {
-                // Busy-Loop-Guard: mindestens 1ms warten wenn getWaitTime() 0 sagt
-                // aber isAllowed() trotzdem false (Race-Condition mit Refill)
+                // Busy-loop guard: wait at least 1ms when getWaitTime() returns 0
+                // but isAllowed() is still false (race condition with refill)
                 usleep(1000);
             }
         }
@@ -158,7 +158,7 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
         $bucket = $this->state[$key];
         $capacity = $this->getBucketCapacity($key);
 
-        // Inline wait-time-Berechnung (vermeidet doppeltes initializeBucket/processLeakage)
+        // Inline wait-time calculation (avoids double initializeBucket/processLeakage)
         $waitTimeMs = 0;
         $availableSpace = $capacity - $bucket['level'];
         if ($availableSpace < 1) {
@@ -229,7 +229,7 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
     private function initializeBucket(string $key): void
     {
         if (!isset($this->state[$key])) {
-            // T-05: Bucket startet leer (level=0), erste Requests sind sofort erlaubt
+            // T-05: bucket starts empty (level=0); the first requests are allowed immediately
             $this->state[$key] = [
                 'level' => 0.0,
                 'last_leak' => microtime(true),
@@ -255,7 +255,7 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
             $leakage = $elapsed * $leakRate;
 
             $oldLevel = $bucket['level'];
-            // max(0, ...) verhindert negatives Level wenn Bucket leer
+            // max(0, ...) prevents a negative level when the bucket is empty
             $bucket['level'] = max(0.0, $bucket['level'] - $leakage);
             $bucket['last_leak'] = $now;
 
@@ -270,7 +270,7 @@ class LeakyBucketRateLimiter extends AbstractRateLimiter
                 ]);
             }
         } elseif ($elapsed > 0) {
-            // Auch last_leak aktualisieren wenn Bucket schon leer ist
+            // Also update last_leak when the bucket is already empty
             $bucket['last_leak'] = $now;
         }
     }

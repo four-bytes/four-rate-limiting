@@ -3,6 +3,7 @@
 composer.lock
 
 # PHPUnit
+.phpunit.result.cache
 /coverage/
 coverage.txt
 phpunit.xml.local

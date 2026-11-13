@@ -7,8 +7,8 @@ namespace Four\RateLimit;
 /**
  * Rate Limit Configuration
  *
- * Konfigurationsobjekt für Rate Limiting: Algorithmus, Limits,
- * Safety Buffer, Header-Mappings und State Persistence.
+ * Configuration object for rate limiting: algorithm, limits,
+ * safety buffer, header mappings and state persistence.
  */
 class RateLimitConfiguration
 {
@@ -47,19 +47,19 @@ class RateLimitConfiguration
         }
 
         if ($this->ratePerSecond <= 0) {
-            throw new \InvalidArgumentException("ratePerSecond muss > 0 sein, {$this->ratePerSecond} gegeben.");
+            throw new \InvalidArgumentException("ratePerSecond must be > 0, {$this->ratePerSecond} given.");
         }
         if ($this->burstCapacity < 1) {
-            throw new \InvalidArgumentException("burstCapacity muss >= 1 sein, {$this->burstCapacity} gegeben.");
+            throw new \InvalidArgumentException("burstCapacity must be >= 1, {$this->burstCapacity} given.");
         }
         if ($this->safetyBuffer <= 0.0 || $this->safetyBuffer > 1.0) {
-            throw new \InvalidArgumentException("safetyBuffer muss > 0.0 und <= 1.0 sein, {$this->safetyBuffer} gegeben.");
+            throw new \InvalidArgumentException("safetyBuffer must be > 0.0 and <= 1.0, {$this->safetyBuffer} given.");
         }
         if ($this->windowSizeMs <= 0) {
-            throw new \InvalidArgumentException("windowSizeMs muss > 0 sein, {$this->windowSizeMs} gegeben.");
+            throw new \InvalidArgumentException("windowSizeMs must be > 0, {$this->windowSizeMs} given.");
         }
         if ($this->cleanupIntervalSeconds < 1) {
-            throw new \InvalidArgumentException("cleanupIntervalSeconds muss >= 1 sein, {$this->cleanupIntervalSeconds} gegeben.");
+            throw new \InvalidArgumentException("cleanupIntervalSeconds must be >= 1, {$this->cleanupIntervalSeconds} given.");
         }
     }
 
@@ -119,7 +119,7 @@ class RateLimitConfiguration
     }
 
     /**
-     * Safety Buffer auf einen Rate-Limit-Wert anwenden
+     * Apply the safety buffer to a rate limit value
      */
     public function applySafetyBuffer(float $limit): float
     {

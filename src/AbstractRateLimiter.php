@@ -9,10 +9,10 @@ use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
 
 /**
- * Abstrakte Basisklasse für alle Rate-Limiter-Implementierungen.
+ * Abstract base class for all rate limiter implementations.
  *
- * Enthält gemeinsame Logik für State-Persistence (File oder PSR-16 Cache),
- * Path-Validierung und Cleanup.
+ * Contains shared logic for state persistence (file or PSR-16 cache),
+ * path validation and cleanup.
  */
 abstract class AbstractRateLimiter implements RateLimiterInterface
 {
@@ -29,9 +29,9 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
             $this->loadState();
         }
 
-        // Kein register_shutdown_function — Libraries sollen keine globalen Shutdown-Handler
-        // registrieren. In long-running Prozessen (Swoole, RoadRunner) wird shutdown nie aufgerufen.
-        // Stattdessen: __destruct() für automatisches Flushing, oder explizit flushState() aufrufen.
+        // No register_shutdown_function — libraries must not register global shutdown handlers.
+        // In long-running processes (Swoole, RoadRunner), shutdown is never called.
+        // Instead: __destruct() for automatic flushing, or call flushState() explicitly.
     }
 
     public function __destruct()
@@ -40,25 +40,25 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
     }
 
     // ---------------------------------------------------------------
-    // Abstrakte Methoden — von Algorithmen implementiert
+    // Abstract methods — implemented by algorithms
     // ---------------------------------------------------------------
 
     abstract protected function getStateKey(): string;
 
     /**
-     * Generiert einen eindeutigen Cache-Key-Suffix basierend auf der Config.
-     * Verhindert Key-Kollisionen bei mehreren Instanzen desselben Algorithmus.
+     * Generates a unique cache key suffix based on the config.
+     * Prevents key collisions with multiple instances of the same algorithm.
      */
     protected function getCacheKeySuffix(): string
     {
-        // Hash aus stateFile (falls vorhanden) oder rate+burst+window als Fallback
+        // Hash from stateFile (if present) or rate+burst+window as fallback
         $identity = $this->config->getStateFile()
             ?? sprintf('r%.4f_b%d_w%d', $this->config->getRatePerSecond(), $this->config->getBurstCapacity(), $this->config->getWindowSizeMs());
         return substr(md5($identity), 0, 8);
     }
 
     // ---------------------------------------------------------------
-    // State-Persistence (PSR-16 Cache oder File)
+    // State persistence (PSR-16 cache or file)
     // ---------------------------------------------------------------
 
     protected function markDirty(): void
@@ -84,7 +84,7 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
                     $this->hydrateState($data);
                 }
             } catch (\Throwable $e) {
-                $this->logger->warning("PSR-16 Cache get() fehlgeschlagen", [
+                $this->logger->warning("PSR-16 cache get() failed", [
                     'key' => $this->getStateKey(),
                     'error' => $e->getMessage(),
                 ]);
@@ -104,7 +104,7 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
                 $this->hydrateState($data);
             }
         } catch (\Throwable $e) {
-            $this->logger->warning("Rate-Limiter State konnte nicht geladen werden", [
+            $this->logger->warning("Rate limiter state could not be loaded", [
                 'error' => $e->getMessage(),
             ]);
         }
@@ -117,15 +117,15 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
 
         if ($this->cache !== null) {
             try {
-                $ttl = $this->config->getCleanupIntervalSeconds() * 2; // 2× Cleanup-Interval als Sicherheitspuffer
+                $ttl = $this->config->getCleanupIntervalSeconds() * 2; // 2× cleanup interval as safety buffer
                 $success = $this->cache->set($this->getStateKey(), $data, $ttl);
                 if (!$success) {
-                    $this->logger->warning("PSR-16 Cache set() gab false zurück", [
+                    $this->logger->warning("PSR-16 cache set() returned false", [
                         'key' => $this->getStateKey(),
                     ]);
                 }
             } catch (\Throwable $e) {
-                $this->logger->warning("PSR-16 Cache set() fehlgeschlagen", [
+                $this->logger->warning("PSR-16 cache set() failed", [
                     'key' => $this->getStateKey(),
                     'error' => $e->getMessage(),
                 ]);
@@ -146,16 +146,16 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
 
             // Atomic write via temp file
             $tmp = $stateFile . '.tmp.' . getmypid();
-            file_put_contents($tmp, json_encode($data)); // kein JSON_PRETTY_PRINT
+            file_put_contents($tmp, json_encode($data)); // no JSON_PRETTY_PRINT
             rename($tmp, $stateFile);
         } catch (\Throwable $e) {
-            $this->logger->warning("Rate-Limiter State konnte nicht gespeichert werden", [
+            $this->logger->warning("Rate limiter state could not be saved", [
                 'error' => $e->getMessage(),
             ]);
         }
     }
 
-    // Subklassen überschreiben für ihren State
+    // Subclasses override for their state
     protected function hydrateState(array $data): void
     {
         $this->state = $data['state'] ?? [];
@@ -172,7 +172,7 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
     }
 
     // ---------------------------------------------------------------
-    // Path-Validierung (C-04: Path Traversal)
+    // Path validation (C-04: path traversal)
     // ---------------------------------------------------------------
 
     protected function getStateFilePath(): ?string
@@ -188,9 +188,9 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
             $resolved = $configFile;
         }
 
-        // Path-Traversal-Schutz: Normalisiere Pfad, prüfe auf '..' nach Normalisierung
+        // Path traversal protection: normalize path, check for '..' after normalization
         $normalized = str_replace(['\\', '//'], ['/', '/'], $resolved);
-        // Entferne `.` und `..` Segmente
+        // Remove `.` and `..` segments
         $parts = explode('/', $normalized);
         $clean = [];
         foreach ($parts as $part) {
@@ -205,7 +205,7 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
         }
         $finalPath = '/' . implode('/', $clean);
 
-        // Whitelist: Pfad muss unterhalb von getcwd() oder /tmp liegen
+        // Whitelist: path must be below getcwd() or /tmp
         $allowedRoots = [getcwd(), sys_get_temp_dir()];
         $allowed = false;
         foreach ($allowedRoots as $root) {
@@ -217,7 +217,7 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
         }
 
         if (!$allowed) {
-            $this->logger->warning("State-Datei außerhalb erlaubter Verzeichnisse abgelehnt", [
+            $this->logger->warning("State file rejected: outside allowed directories", [
                 'path' => $finalPath,
                 'allowed_roots' => $allowedRoots,
             ]);
@@ -228,14 +228,14 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
     }
 
     // ---------------------------------------------------------------
-    // PSR-7 Header-Normalisierung
+    // PSR-7 header normalization
     // ---------------------------------------------------------------
 
     /**
-     * Normalisiert PSR-7 Header-Arrays zu flachen key=>value Paaren.
+     * Normalizes PSR-7 header arrays to flat key=>value pairs.
      * PSR-7: array<string, string[]> → Flat: array<string, string>
      *
-     * Akzeptiert auch bereits flache Arrays (Rückwärtskompatibilität).
+     * Also accepts already flat arrays (backward compatibility).
      */
     protected function flattenHeaders(array $headers): array
     {
@@ -258,11 +258,11 @@ abstract class AbstractRateLimiter implements RateLimiterInterface
 
     protected function doCleanOldEntries(float $cutoff): void
     {
-        // Subklassen können überschreiben
+        // Subclasses may override
     }
 
     // ---------------------------------------------------------------
-    // Interface-Methoden (F-02)
+    // Interface methods (F-02)
     // ---------------------------------------------------------------
 
     public function resetAll(): void

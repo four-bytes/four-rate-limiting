@@ -12,7 +12,7 @@ use PHPUnit\Framework\TestCase;
 class RateLimitConfigurationTest extends TestCase
 {
     // ---------------------------------------------------------------
-    // Basis-Konstruktion
+    // Basic construction
     // ---------------------------------------------------------------
 
     public function testValidConfigurationCreation(): void
@@ -32,13 +32,13 @@ class RateLimitConfigurationTest extends TestCase
     }
 
     // ---------------------------------------------------------------
-    // Input-Validierung
+    // Input validation
     // ---------------------------------------------------------------
 
     public function testThrowsOnZeroRatePerSecond(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('ratePerSecond muss > 0 sein');
+        $this->expectExceptionMessage('ratePerSecond must be > 0');
 
         new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
@@ -50,7 +50,7 @@ class RateLimitConfigurationTest extends TestCase
     public function testThrowsOnNegativeRatePerSecond(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('ratePerSecond muss > 0 sein');
+        $this->expectExceptionMessage('ratePerSecond must be > 0');
 
         new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
@@ -62,7 +62,7 @@ class RateLimitConfigurationTest extends TestCase
     public function testThrowsOnZeroBurstCapacity(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('burstCapacity muss >= 1 sein');
+        $this->expectExceptionMessage('burstCapacity must be >= 1');
 
         new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
@@ -74,7 +74,7 @@ class RateLimitConfigurationTest extends TestCase
     public function testThrowsOnNegativeBurstCapacity(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('burstCapacity muss >= 1 sein');
+        $this->expectExceptionMessage('burstCapacity must be >= 1');
 
         new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
@@ -86,7 +86,7 @@ class RateLimitConfigurationTest extends TestCase
     public function testThrowsOnZeroSafetyBuffer(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('safetyBuffer muss > 0.0 und <= 1.0 sein');
+        $this->expectExceptionMessage('safetyBuffer must be > 0.0 and <= 1.0');
 
         new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
@@ -99,7 +99,7 @@ class RateLimitConfigurationTest extends TestCase
     public function testThrowsOnSafetyBufferAboveOne(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('safetyBuffer muss > 0.0 und <= 1.0 sein');
+        $this->expectExceptionMessage('safetyBuffer must be > 0.0 and <= 1.0');
 
         new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
@@ -124,7 +124,7 @@ class RateLimitConfigurationTest extends TestCase
     public function testThrowsOnZeroWindowSizeMs(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('windowSizeMs muss > 0 sein');
+        $this->expectExceptionMessage('windowSizeMs must be > 0');
 
         new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
@@ -137,7 +137,7 @@ class RateLimitConfigurationTest extends TestCase
     public function testThrowsOnNegativeWindowSizeMs(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('windowSizeMs muss > 0 sein');
+        $this->expectExceptionMessage('windowSizeMs must be > 0');
 
         new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
@@ -148,7 +148,7 @@ class RateLimitConfigurationTest extends TestCase
     }
 
     // ---------------------------------------------------------------
-    // Header-Konstanten
+    // Header constants
     // ---------------------------------------------------------------
 
     public function testHeaderConstants(): void

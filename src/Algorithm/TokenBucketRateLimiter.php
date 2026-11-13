@@ -13,9 +13,9 @@ use Psr\SimpleCache\CacheInterface;
 /**
  * Token Bucket Rate Limiter
  *
- * Implementiert den Token-Bucket-Algorithmus für Rate Limiting.
- * Erlaubt Bursts bis zur Bucket-Kapazität, danach Beschränkung auf die Nachfüllrate.
- * Ideal für APIs, die anfängliche Bursts und dann gleichmäßigen Fluss erlauben.
+ * Implements the token bucket algorithm for rate limiting.
+ * Allows bursts up to the bucket capacity, then limits to the refill rate.
+ * Ideal for APIs that allow initial bursts and then a steady flow.
  *
  * $this->state[$key] = ['tokens' => float, 'capacity' => int, 'last_refill' => float, 'last_request' => ?float]
  */
@@ -77,8 +77,8 @@ class TokenBucketRateLimiter extends AbstractRateLimiter
             if ($waitTimeMs > 0) {
                 usleep($waitTimeMs * 1000);
             } else {
-                // Busy-Loop-Guard: mindestens 1ms warten wenn getWaitTime() 0 sagt
-                // aber isAllowed() trotzdem false (Race-Condition mit Refill)
+                // Busy-loop guard: wait at least 1ms when getWaitTime() returns 0
+                // but isAllowed() is still false (race condition with refill)
                 usleep(1000);
             }
         }
@@ -125,7 +125,7 @@ class TokenBucketRateLimiter extends AbstractRateLimiter
 
         $bucket = $this->state[$key];
 
-        // Inline wait-time-Berechnung (vermeidet doppeltes initializeBucket/refillBucket)
+        // Inline wait-time calculation (avoids double initializeBucket/refillBucket)
         $waitTimeMs = 0;
         if ($bucket['tokens'] < 1) {
             $tokensNeeded = 1 - $bucket['tokens'];
@@ -173,15 +173,15 @@ class TokenBucketRateLimiter extends AbstractRateLimiter
     }
 
     /**
-     * Bucket für einen Key initialisieren falls noch nicht vorhanden.
+     * Initialize the bucket for a key if it does not exist yet.
      *
-     * C-03 Fix: burstCapacity ist die Bucket-Kapazität (Obergrenze), nicht max(burst, rate).
-     * Die rate ist nur die Nachfüllrate pro Sekunde.
+     * C-03 fix: burstCapacity is the bucket capacity (upper bound), not max(burst, rate).
+     * The rate is only the refill rate per second.
      */
     private function initializeBucket(string $key): void
     {
         if (!isset($this->state[$key])) {
-            // C-03 Fix: capacity = burstCapacity (Obergrenze des Buckets)
+            // C-03 fix: capacity = burstCapacity (upper bound of the bucket)
             $capacity = $this->config->getBurstCapacity();
 
             $this->state[$key] = [

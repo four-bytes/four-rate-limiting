@@ -1,7 +1,7 @@
 # four-rate-limiting
 
 [![PHP Version](https://img.shields.io/badge/php-^8.4-blue.svg)](https://packagist.org/packages/four-bytes/four-rate-limiting)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Generic rate limiting library for PHP 8.4+. Four algorithms, header-based dynamic tracking, state persistence, PSR-16 cache backend.
 

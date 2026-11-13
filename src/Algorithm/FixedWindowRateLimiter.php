@@ -13,15 +13,15 @@ use Psr\SimpleCache\CacheInterface;
 /**
  * Fixed Window Rate Limiter
  *
- * Implementiert Fixed-Window-Rate-Limiting (z. B. 1000 Requests pro Stunde).
- * Setzt den Zähler in festen Intervallen zurück. Gut für APIs mit täglichen/stündlichen Limits.
- * Ideal für eBay API mit täglichen/stündlichen Rate Limits.
+ * Implements fixed-window rate limiting (e.g. 1000 requests per hour).
+ * Resets the counter at fixed intervals. Good for APIs with daily/hourly limits.
+ * Ideal for the eBay API with daily/hourly rate limits.
  *
  * $this->state[$key] = ['count' => int, 'window_start' => float, 'window_end' => float, 'last_request' => ?float]
  *
- * @warning Bekanntes Bunny-Hop-Problem: Requests können sich am Fenster-Ende häufen,
- *          was kurzzeitig bis zu 2× der konfigurierten Rate ermöglicht.
- *          Für gleichmäßigeren Fluss SlidingWindowRateLimiter verwenden.
+ * @warning Known bunny-hop problem: requests can pile up at the end of the window,
+ *          which briefly allows up to 2× the configured rate.
+ *          Use SlidingWindowRateLimiter for a smoother flow.
  */
 class FixedWindowRateLimiter extends AbstractRateLimiter
 {
@@ -40,7 +40,7 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
 
     protected function hydrateState(array $data): void
     {
-        // Rückwärtskompatibilität: alte State-Dateien nutzen 'windows', neue 'state'
+        // Backward compatibility: old state files use 'windows', new ones 'state'
         $this->state = $data['windows'] ?? $data['state'] ?? [];
         $this->dynamicLimits = $data['dynamic_limits'] ?? [];
         $this->cleanOldEntries();
@@ -104,8 +104,8 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
             if ($waitTimeMs > 0) {
                 usleep(min($waitTimeMs * 1000, 1000000));
             } else {
-                // Busy-Loop-Guard: mindestens 1ms warten wenn getWaitTime() 0 sagt
-                // aber isAllowed() trotzdem false (Race-Condition mit Refill)
+                // Busy-loop guard: wait at least 1ms when getWaitTime() returns 0
+                // but isAllowed() is still false (race condition with refill)
                 usleep(1000);
             }
         }
@@ -151,7 +151,7 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
         $window = $this->state[$key];
         $limit = $this->getEffectiveLimit($key);
 
-        // Inline wait-time-Berechnung (vermeidet doppeltes initializeWindow/checkWindowReset)
+        // Inline wait-time calculation (avoids double initializeWindow/checkWindowReset)
         $waitTimeMs = 0;
         if ($window['count'] >= $limit) {
             $waitTime = $window['window_end'] - microtime(true);
@@ -179,7 +179,7 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
         $headerMappings = $this->config->getHeaderMappings();
         $updated = false;
 
-        // Tägliche Limits prüfen (eBay-Stil)
+        // Check daily limits (eBay style)
         if (!empty($headerMappings[RateLimitConfiguration::HEADER_DAILY_LIMIT]) && isset($headers[$headerMappings[RateLimitConfiguration::HEADER_DAILY_LIMIT]])) {
             $dailyLimit = (int)$headers[$headerMappings[RateLimitConfiguration::HEADER_DAILY_LIMIT]];
             if ($dailyLimit > 0) {
@@ -195,7 +195,7 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
             }
         }
 
-        // Stündliche Limits prüfen
+        // Check hourly limits
         if (!empty($headerMappings[RateLimitConfiguration::HEADER_HOURLY_LIMIT]) && isset($headers[$headerMappings[RateLimitConfiguration::HEADER_HOURLY_LIMIT]])) {
             $hourlyLimit = (int)$headers[$headerMappings[RateLimitConfiguration::HEADER_HOURLY_LIMIT]];
             if ($hourlyLimit > 0) {
@@ -211,7 +211,7 @@ class FixedWindowRateLimiter extends AbstractRateLimiter
             }
         }
 
-        // Verbleibende tägliche Requests aus Header übernehmen
+        // Adopt remaining daily requests from header
         if (!empty($headerMappings[RateLimitConfiguration::HEADER_DAILY_REMAINING]) && isset($headers[$headerMappings[RateLimitConfiguration::HEADER_DAILY_REMAINING]])) {
             $remaining = (int)$headers[$headerMappings[RateLimitConfiguration::HEADER_DAILY_REMAINING]];
             $this->initializeWindow($key);

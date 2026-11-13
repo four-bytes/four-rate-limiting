@@ -1,126 +1,93 @@
 <?php
 
+declare(strict_types=1);
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Four\RateLimit\RateLimitConfiguration;
 use Four\RateLimit\RateLimiterFactory;
-use Four\RateLimit\Preset\MarketplacePresets;
-
-// Example 1: Using marketplace presets
-echo "=== Marketplace Preset Examples ===\n";
 
 $factory = new RateLimiterFactory();
 
-// Amazon SP-API rate limiter
-$amazonLimiter = $factory->createForMarketplace('amazon');
-echo "Amazon rate limiter created\n";
+echo "=== Token bucket with custom configuration ===\n";
 
-// Test Amazon rate limiting
-$key = 'amazon.orders.seller123';
-if ($amazonLimiter->isAllowed($key)) {
-    echo "✓ Amazon API call allowed\n";
-} else {
-    $waitTime = $amazonLimiter->getWaitTime($key);
-    echo "✗ Amazon API call rate limited - wait {$waitTime}ms\n";
-}
-
-// eBay Trading API rate limiter
-$ebayLimiter = $factory->createForMarketplace('ebay');
-echo "eBay rate limiter created\n";
-
-// Test eBay rate limiting with multiple tokens
-$key = 'ebay.inventory.seller456';
-if ($ebayLimiter->isAllowed($key, 3)) { // Request 3 tokens
-    echo "✓ eBay API batch call allowed (3 requests)\n";
-} else {
-    echo "✗ eBay API batch call rate limited\n";
-}
-
-echo "\n=== Custom Configuration Example ===\n";
-
-// Example 2: Custom rate limiter
-$customLimiter = $factory->createCustom(
-    algorithm: 'token_bucket',
-    ratePerSecond: 5.0,           // 5 requests per second
-    burstCapacity: 20,            // Allow bursts up to 20
-    safetyBuffer: 0.8,            // 80% of limits for safety
-    endpointLimits: [
-        'search' => 10.0,         // Search endpoint: 10/sec
-        'upload' => 1.0,          // Upload endpoint: 1/sec
-    ]
+$limiter = $factory->createCustom(
+    algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
+    ratePerSecond: 5.0,
+    burstCapacity: 10,
+    safetyBuffer: 0.8,
+    headerMappings: [
+        RateLimitConfiguration::HEADER_LIMIT => 'x-rate-limit-limit',
+        RateLimitConfiguration::HEADER_REMAINING => 'x-rate-limit-remaining',
+    ],
 );
 
-// Test custom endpoint limits
-$searchKey = 'myapi.search.user789';
-$uploadKey = 'myapi.upload.user789';
+$key = 'example.token_bucket';
 
-echo "Testing custom endpoint limits:\n";
-
-// Test search endpoint (higher limit)
-for ($i = 0; $i < 12; $i++) {
-    if ($customLimiter->isAllowed($searchKey)) {
-        echo "✓ Search request $i allowed\n";
+for ($i = 0; $i < 10; $i++) {
+    if ($limiter->isAllowed($key)) {
+        echo "Request $i allowed\n";
     } else {
-        echo "✗ Search request $i rate limited\n";
+        echo "Request $i rate limited\n";
         break;
     }
 }
 
-// Test upload endpoint (lower limit)  
-for ($i = 0; $i < 3; $i++) {
-    if ($customLimiter->isAllowed($uploadKey)) {
-        echo "✓ Upload request $i allowed\n";
-    } else {
-        echo "✗ Upload request $i rate limited\n";
-        break;
-    }
+$status = $limiter->getStatus($key);
+printf(
+    "Status: %s, tokens available: %.2f/%d, rate: %.2f/s\n",
+    $status['algorithm'],
+    $status['tokens_available'],
+    $status['capacity'],
+    $status['rate_per_second'],
+);
+
+echo "\n=== Endpoint-specific limits ===\n";
+
+$endpointLimiter = $factory->create(new RateLimitConfiguration(
+    algorithm: RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW,
+    ratePerSecond: 2.0,
+    burstCapacity: 10,
+    endpointLimits: [
+        'search' => 10.0,
+        'upload' => 1.0,
+    ],
+    windowSizeMs: 1000,
+    persistState: false,
+));
+
+foreach (['search', 'upload'] as $endpoint) {
+    $allowed = $endpointLimiter->isAllowed($endpoint);
+    printf("Endpoint %-6s allowed: %s\n", $endpoint, $allowed ? 'yes' : 'no');
 }
 
-echo "\n=== Rate Limit Status Example ===\n";
+echo "\n=== Update limits from response headers ===\n";
 
-// Example 3: Get rate limit status
-$status = $amazonLimiter->getStatus($key);
-echo "Amazon rate limiter status:\n";
-echo "  Tokens available: " . ($status['tokens'] ?? 'unknown') . "\n";
-echo "  Capacity: " . ($status['capacity'] ?? 'unknown') . "\n";
-echo "  Last refill: " . ($status['last_refill'] ?? 'never') . "\n";
-echo "  Rate per second: " . ($status['rate_per_second'] ?? 'unknown') . "\n";
+$limiter->updateFromHeaders($key, [
+    'x-rate-limit-limit' => '20',
+    'x-rate-limit-remaining' => '15',
+]);
+echo "Limits updated from response headers\n";
 
-echo "\n=== Header Update Example ===\n";
+echo "\n=== Wait for a token ===\n";
 
-// Example 4: Update limits from API response headers
-$mockApiHeaders = [
-    'x-amzn-RateLimit-Limit' => '20',      // New limit from Amazon
-    'x-amzn-RateLimit-Remaining' => '15'   // Remaining requests
-];
-
-echo "Updating Amazon rate limiter from API response headers...\n";
-$amazonLimiter->updateFromHeaders($key, $mockApiHeaders);
-
-$updatedStatus = $amazonLimiter->getStatus($key);
-echo "Updated status:\n";
-echo "  Tokens available: " . ($updatedStatus['tokens'] ?? 'unknown') . "\n";
-echo "  Dynamic limit: " . ($updatedStatus['dynamic_limit'] ?? 'none') . "\n";
-
-echo "\n=== Wait for Allowed Example ===\n";
-
-// Example 5: Wait for rate limit to allow request
-echo "Attempting to wait for rate limit to allow request...\n";
-$startTime = microtime(true);
-
-// This will wait up to 5 seconds for the rate limit to allow the request
-$allowed = $amazonLimiter->waitForAllowed($key, 1, 5000); // 5000ms = 5 seconds
-
-$endTime = microtime(true);
-$waitedTime = round(($endTime - $startTime) * 1000); // Convert to ms
-
-if ($allowed) {
-    echo "✓ Request allowed after waiting {$waitedTime}ms\n";
+$start = microtime(true);
+if ($limiter->waitForAllowed($key, 1, 5000)) {
+    $waitedMs = (int) round((microtime(true) - $start) * 1000);
+    echo "Request allowed after waiting {$waitedMs}ms\n";
 } else {
-    echo "✗ Request still not allowed after waiting {$waitedTime}ms\n";
+    echo "Request still not allowed after timeout\n";
 }
 
-echo "\n=== Available Marketplaces ===\n";
-$marketplaces = MarketplacePresets::getAvailableMarketplaces();
-echo "Supported marketplaces: " . implode(', ', $marketplaces) . "\n";
+echo "\n=== Typed status DTO ===\n";
+
+$typed = $limiter->getTypedStatus($key);
+printf(
+    "Algorithm: %s, rate limited: %s, wait time: %dms, usage: %.2f%%\n",
+    $typed->algorithm,
+    $typed->isRateLimited ? 'yes' : 'no',
+    $typed->waitTimeMs,
+    $typed->usagePercent,
+);
 
 echo "\nExample completed!\n";

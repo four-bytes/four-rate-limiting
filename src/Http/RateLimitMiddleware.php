@@ -11,14 +11,14 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 /**
- * Rate-Limit-Middleware für HTTP-Clients.
+ * Rate limit middleware for HTTP clients.
  *
- * Kapselt die komplette Rate-Limit-Logik:
- * 1. Vor dem Request: Token verbrauchen (waitForAllowed)
- * 2. Nach dem Response: Header-State aktualisieren (updateFromHeaders)
- * 3. Bei 429: Exponential Backoff + Retry
+ * Encapsulates the complete rate limit logic:
+ * 1. Before the request: consume a token (waitForAllowed)
+ * 2. After the response: update header state (updateFromHeaders)
+ * 3. On 429: exponential backoff + retry
  *
- * Verwendung im API-Client:
+ * Usage in the API client:
  *
  *   $middleware = new RateLimitMiddleware($rateLimiter, 'etsy');
  *   $response = $middleware->execute(fn() => $httpClient->sendRequest($request));
@@ -36,31 +36,31 @@ class RateLimitMiddleware
     ) {}
 
     /**
-     * Führt einen HTTP-Request mit Rate-Limit-Schutz aus.
+     * Executes an HTTP request with rate limit protection.
      *
-     * @param callable(): ResponseInterface $sendRequest Funktion die den HTTP-Request sendet
-     * @return ResponseInterface Die API-Response
-     * @throws RateLimitExceededException Wenn Rate-Limit + Retries erschöpft
+     * @param callable(): ResponseInterface $sendRequest Function that sends the HTTP request
+     * @return ResponseInterface The API response
+     * @throws RateLimitExceededException When rate limit + retries are exhausted
      */
     public function execute(callable $sendRequest): ResponseInterface
     {
         $attempt = 0;
 
         while (true) {
-            // 1. Pre-Request: Token verbrauchen
+            // 1. Pre-request: consume token
             $allowed = $this->rateLimiter->waitForAllowed($this->key, 1, $this->maxWaitMs);
             if (!$allowed) {
                 $waitTimeMs = $this->rateLimiter->getWaitTime($this->key);
                 throw new RateLimitExceededException($this->key, $waitTimeMs, $this->maxWaitMs);
             }
 
-            // 2. Request senden
+            // 2. Send request
             $response = $sendRequest();
 
-            // 3. Post-Response: Headers aktualisieren
+            // 3. Post-response: update headers
             $this->rateLimiter->updateFromHeaders($this->key, $response->getHeaders());
 
-            // 4. Bei 429: Retry mit Exponential Backoff
+            // 4. On 429: retry with exponential backoff
             if ($response->getStatusCode() === 429) {
                 $attempt++;
                 if ($attempt > $this->maxRetries) {
@@ -70,7 +70,7 @@ class RateLimitMiddleware
                         $retryAfter * 1000,
                         $this->maxWaitMs,
                         sprintf(
-                            'Rate limit für "%s" nach %d Retries erschöpft. Server sagt: retry nach %ds.',
+                            'Rate limit for "%s" exhausted after %d retries. Server says: retry after %ds.',
                             $this->key, $this->maxRetries, $retryAfter,
                         ),
                     );
@@ -97,21 +97,21 @@ class RateLimitMiddleware
     }
 
     /**
-     * Parst den retry-after Header (Sekunden).
+     * Parses the retry-after header (seconds).
      */
     private function parseRetryAfter(ResponseInterface $response): int
     {
         $header = $response->getHeaderLine('retry-after');
         if ($header === '') {
-            return 1; // Default: 1 Sekunde
+            return 1; // Default: 1 second
         }
 
-        // retry-after kann Sekunden oder HTTP-Date sein
+        // retry-after can be seconds or an HTTP date
         if (is_numeric($header)) {
             return max(1, (int) $header);
         }
 
-        // HTTP-Date → Differenz zu jetzt
+        // HTTP date → difference to now
         $retryTime = strtotime($header);
         if ($retryTime !== false) {
             return max(1, $retryTime - time());

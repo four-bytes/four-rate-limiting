@@ -7,11 +7,11 @@ namespace Four\RateLimit;
 /**
  * Rate-Limit-Status DTO
  *
- * Typisierter Rückgabetyp für getStatus()-Aufrufe.
- * Ersetzt die unstrukturierten Arrays der einzelnen Algorithmen.
+ * Typed return type for getStatus() calls.
+ * Replaces the unstructured arrays of the individual algorithms.
  *
- * Rückwärtskompatibilität: getStatus() gibt weiterhin array zurück (Interface),
- * aber Implementierungen können intern RateLimitStatus nutzen und toArray() aufrufen.
+ * Backward compatibility: getStatus() still returns an array (interface),
+ * but implementations may use RateLimitStatus internally and call toArray().
  */
 readonly class RateLimitStatus
 {
@@ -40,7 +40,7 @@ readonly class RateLimitStatus
         $isRateLimited = $data['is_rate_limited'] ?? false;
         $waitTimeMs = $data['wait_time_ms'] ?? 0;
 
-        // Versuche usage_percent aus den Rohdaten zu berechnen
+        // Try to compute usage_percent from the raw data
         $usagePercent = 0.0;
         if (isset($data['tokens_available'], $data['capacity']) && $data['capacity'] > 0) {
             $usagePercent = (1 - $data['tokens_available'] / $data['capacity']) * 100;

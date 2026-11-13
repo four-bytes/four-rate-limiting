@@ -15,8 +15,8 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
 /**
- * Tests für AbstractRateLimiter (F-02: resetAll, getAllStatuses, cleanup)
- * und für den C-03 Bug-Fix im TokenBucketRateLimiter.
+ * Tests for AbstractRateLimiter (F-02: resetAll, getAllStatuses, cleanup)
+ * and for the C-03 bug fix in TokenBucketRateLimiter.
  */
 #[CoversClass(AbstractRateLimiter::class)]
 #[CoversClass(TokenBucketRateLimiter::class)]
@@ -38,14 +38,14 @@ class AbstractRateLimiterTest extends TestCase
     }
 
     // ---------------------------------------------------------------
-    // C-03 Bug-Fix: burstCapacity ist die Bucket-Kapazität
+    // C-03 bug fix: burstCapacity is the bucket capacity
     // ---------------------------------------------------------------
 
     public function testTokenBucketCapacityIsBurstCapacity(): void
     {
         $config = new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
-            ratePerSecond: 100.0, // Hohe Rate — vorher wäre max(burst, rate) = 100 gewesen
+            ratePerSecond: 100.0, // High rate — previously this would have been max(burst, rate) = 100
             burstCapacity: 10,
             safetyBuffer: 1.0,
             persistState: false,
@@ -54,7 +54,7 @@ class AbstractRateLimiterTest extends TestCase
         $limiter = new TokenBucketRateLimiter($config, new NullLogger());
 
         $status = $limiter->getStatus('test');
-        // C-03 Fix: Kapazität muss burstCapacity (10) sein, NICHT max(10, 100) = 100
+        // C-03 fix: capacity must be burstCapacity (10), NOT max(10, 100) = 100
         $this->assertSame(10, $status['capacity']);
         $this->assertSame(10.0, $status['tokens_available']);
     }
@@ -67,7 +67,7 @@ class AbstractRateLimiterTest extends TestCase
     {
         $limiter = new TokenBucketRateLimiter($this->makeConfig(), new NullLogger());
 
-        // Mehrere Keys initialisieren
+        // Initialize multiple keys
         $limiter->isAllowed('key1');
         $limiter->isAllowed('key2');
         $limiter->isAllowed('key3');
@@ -113,16 +113,16 @@ class AbstractRateLimiterTest extends TestCase
     {
         $limiter = new TokenBucketRateLimiter($this->makeConfig(), new NullLogger());
 
-        // Keys initialisieren
+        // Initialize keys
         $limiter->isAllowed('old-key');
         $limiter->isAllowed('new-key');
 
-        // Tokens exhausten um last_request zu setzen
+        // Exhaust tokens to set last_request
         for ($i = 0; $i < 10; $i++) {
             $limiter->isAllowed('old-key');
         }
 
-        // cleanup mit maxAgeSeconds=0 löscht alles
+        // cleanup with maxAgeSeconds=0 deletes everything
         $deleted = $limiter->cleanup(0);
 
         $this->assertGreaterThanOrEqual(1, $deleted);
@@ -136,7 +136,7 @@ class AbstractRateLimiterTest extends TestCase
         $limiter->isAllowed('key2');
 
         $before = count($limiter->getAllStatuses());
-        $deleted = $limiter->cleanup(0); // Alles löschen
+        $deleted = $limiter->cleanup(0); // Delete everything
         $after = count($limiter->getAllStatuses());
 
         $this->assertSame($before, $deleted + $after);
@@ -148,7 +148,7 @@ class AbstractRateLimiterTest extends TestCase
 
         $limiter->isAllowed('active-key');
 
-        // Mit sehr großem maxAgeSeconds — kein Eintrag sollte gelöscht werden
+        // With a very large maxAgeSeconds — no entry should be deleted
         $deleted = $limiter->cleanup(99999);
 
         $this->assertSame(0, $deleted);
@@ -156,7 +156,7 @@ class AbstractRateLimiterTest extends TestCase
     }
 
     // ---------------------------------------------------------------
-    // AbstractRateLimiter gilt für alle Algorithmen
+    // AbstractRateLimiter applies to all algorithms
     // ---------------------------------------------------------------
 
     /** @dataProvider allAlgorithmsProvider */
@@ -204,13 +204,13 @@ class AbstractRateLimiterTest extends TestCase
     }
 
     // ---------------------------------------------------------------
-    // Path Traversal Schutz (C-04)
+    // Path traversal protection (C-04)
     // ---------------------------------------------------------------
 
     public function testPathTraversalIsRejected(): void
     {
-        // Ein Pfad mit Path-Traversal wird abgelehnt (null zurückgegeben von getStateFilePath)
-        // Der Limiter darf nicht crashen — er soll einfach keinen State speichern
+        // A path with path traversal is rejected (getStateFilePath returns null)
+        // The limiter must not crash — it should simply not persist any state
         $config = new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_TOKEN_BUCKET,
             ratePerSecond: 5.0,
@@ -219,7 +219,7 @@ class AbstractRateLimiterTest extends TestCase
             stateFile: '../../etc/passwd',
         );
 
-        // Kein Fehler beim Erstellen — Path-Traversal wird still abgefangen
+        // No error on creation — path traversal is silently caught
         $limiter = new TokenBucketRateLimiter($config, new NullLogger());
         $this->assertTrue($limiter->isAllowed('test'));
     }

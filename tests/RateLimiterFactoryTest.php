@@ -53,7 +53,7 @@ class RateLimiterFactoryTest extends TestCase
 
     public function testCreateWithFixedWindowConfig(): void
     {
-        // Entspricht einer typischen eBay-ähnlichen Konfiguration
+        // Corresponds to a typical eBay-like configuration
         $config = new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_FIXED_WINDOW,
             ratePerSecond: 0.0579,
@@ -71,7 +71,7 @@ class RateLimiterFactoryTest extends TestCase
 
     public function testCreateWithSlidingWindowConfig(): void
     {
-        // Entspricht einer typischen Discogs-ähnlichen Konfiguration
+        // Corresponds to a typical Discogs-like configuration
         $config = new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW,
             ratePerSecond: 1.0,
@@ -93,7 +93,7 @@ class RateLimiterFactoryTest extends TestCase
 
     public function testCreateWithLeakyBucketConfig(): void
     {
-        // Entspricht einer konservativen Konfiguration (z.B. Bandcamp)
+        // Corresponds to a conservative configuration (e.g. Bandcamp)
         $config = new RateLimitConfiguration(
             algorithm: RateLimitConfiguration::ALGORITHM_LEAKY_BUCKET,
             ratePerSecond: 1.0,

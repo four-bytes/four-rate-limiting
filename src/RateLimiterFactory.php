@@ -11,8 +11,8 @@ use Psr\SimpleCache\CacheInterface;
 /**
  * Rate Limiter Factory
  *
- * Erstellt Rate-Limiter-Instanzen anhand einer RateLimitConfiguration.
- * Die Konfiguration gehört in den jeweiligen API-Client.
+ * Creates rate limiter instances from a RateLimitConfiguration.
+ * The configuration belongs in the respective API client.
  */
 class RateLimiterFactory
 {
@@ -21,7 +21,7 @@ class RateLimiterFactory
     ) {}
 
     /**
-     * Rate Limiter aus Konfiguration erstellen
+     * Create a rate limiter from configuration
      */
     public function create(RateLimitConfiguration $config, ?CacheInterface $cache = null): RateLimiterInterface
     {
@@ -35,7 +35,7 @@ class RateLimiterFactory
     }
 
     /**
-     * Rate Limiter mit konkreten Parametern erstellen (ohne Config-Objekt)
+     * Create a rate limiter with explicit parameters (without a config object)
      */
     public function createCustom(
         string $algorithm,
@@ -60,7 +60,7 @@ class RateLimiterFactory
     }
 
     /**
-     * Rate Limiter mit PSR-16 Cache-Backend erstellen
+     * Create a rate limiter with a PSR-16 cache backend
      */
     public static function createWithCache(
         string $algorithm,

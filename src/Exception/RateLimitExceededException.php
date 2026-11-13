@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Four\RateLimit\Exception;
 
 /**
- * Wird geworfen wenn ein Rate Limit überschritten wurde und
- * die maximale Wartezeit abgelaufen ist.
+ * Thrown when a rate limit has been exceeded and
+ * the maximum wait time has elapsed.
  */
 class RateLimitExceededException extends \RuntimeException
 {
@@ -19,7 +19,7 @@ class RateLimitExceededException extends \RuntimeException
     ) {
         parent::__construct(
             $message ?: sprintf(
-                'Rate limit für "%s" überschritten. Nächster Token in %dms (max. Wartezeit: %dms).',
+                'Rate limit for "%s" exceeded. Next token in %dms (max wait time: %dms).',
                 $key, $waitTimeMs, $maxWaitMs,
             ),
             0,

@@ -7,90 +7,90 @@ namespace Four\RateLimit;
 /**
  * Rate Limiter Interface
  *
- * Definiert den Vertrag für alle Rate-Limiting-Implementierungen.
- * Unterstützt mehrere Algorithmen: TokenBucket, FixedWindow, SlidingWindow, LeakyBucket.
+ * Defines the contract for all rate limiting implementations.
+ * Supports multiple algorithms: TokenBucket, FixedWindow, SlidingWindow, LeakyBucket.
  */
 interface RateLimiterInterface
 {
     /**
-     * Prüft ob eine Operation unter den aktuellen Rate Limits erlaubt ist.
+     * Checks whether an operation is allowed under the current rate limits.
      *
-     * @param string $key Eindeutiger Bezeichner der rate-limitierten Ressource
-     * @param int $tokens Anzahl zu verbrauchender Tokens (default: 1)
-     * @return bool True wenn erlaubt, false wenn rate-limitiert
+     * @param string $key Unique identifier of the rate-limited resource
+     * @param int $tokens Number of tokens to consume (default: 1)
+     * @return bool True if allowed, false if rate-limited
      */
     public function isAllowed(string $key, int $tokens = 1): bool;
 
     /**
-     * Wartet bis das Rate Limit die Operation erlaubt.
+     * Waits until the rate limit allows the operation.
      *
-     * @param string $key Eindeutiger Bezeichner der rate-limitierten Ressource
-     * @param int $tokens Anzahl zu verbrauchender Tokens (default: 1)
-     * @param int $maxWaitMs Maximale Wartezeit in Millisekunden (default: 30000)
-     * @return bool True wenn Operation erlaubt wurde, false bei Timeout
+     * @param string $key Unique identifier of the rate-limited resource
+     * @param int $tokens Number of tokens to consume (default: 1)
+     * @param int $maxWaitMs Maximum wait time in milliseconds (default: 30000)
+     * @return bool True if the operation was allowed, false on timeout
      */
     public function waitForAllowed(string $key, int $tokens = 1, int $maxWaitMs = 30000): bool;
 
     /**
-     * Gibt die Zeit bis zum nächsten verfügbaren Token zurück.
+     * Returns the time until the next available token.
      *
-     * @param string $key Eindeutiger Bezeichner der rate-limitierten Ressource
-     * @return int Millisekunden bis zum nächsten Token, 0 wenn sofort verfügbar
+     * @param string $key Unique identifier of the rate-limited resource
+     * @return int Milliseconds until the next token, 0 if immediately available
      */
     public function getWaitTime(string $key): int;
 
     /**
-     * Setzt den Rate-Limiter-State für einen bestimmten Key zurück.
+     * Resets the rate limiter state for a specific key.
      *
-     * @param string $key Eindeutiger Bezeichner der rate-limitierten Ressource
+     * @param string $key Unique identifier of the rate-limited resource
      */
     public function reset(string $key): void;
 
     /**
-     * Gibt den aktuellen Rate-Limit-Status zurück.
+     * Returns the current rate limit status.
      *
-     * @param string $key Eindeutiger Bezeichner der rate-limitierten Ressource
-     * @return array Status-Informationen inkl. Tokens, Limits, Reset-Zeit
+     * @param string $key Unique identifier of the rate-limited resource
+     * @return array Status information incl. tokens, limits, reset time
      */
     public function getStatus(string $key): array;
 
     /**
-     * Aktualisiert Rate Limits aus API-Response-Headern.
+     * Updates rate limits from API response headers.
      *
-     * @param string $key Eindeutiger Bezeichner der rate-limitierten Ressource
-     * @param array $headers HTTP-Response-Header
+     * @param string $key Unique identifier of the rate-limited resource
+     * @param array $headers HTTP response headers
      */
     public function updateFromHeaders(string $key, array $headers): void;
 
     /**
-     * Reset rate limiter state für alle Keys
+     * Reset rate limiter state for all keys
      */
     public function resetAll(): void;
 
     /**
-     * Status aller bekannten Keys abrufen
+     * Retrieve the status of all known keys
      *
-     * @return array<string, array> Key → Status-Array
+     * @return array<string, array> Key → status array
      */
     public function getAllStatuses(): array;
 
     /**
-     * Alte Einträge aufräumen
+     * Clean up old entries
      *
-     * @param int $maxAgeSeconds Maximales Alter in Sekunden (default: 3600)
-     * @return int Anzahl gelöschter Keys
+     * @param int $maxAgeSeconds Maximum age in seconds (default: 3600)
+     * @return int Number of deleted keys
      */
     public function cleanup(int $maxAgeSeconds = 3600): int;
 
     /**
-     * Gibt den typisierten Rate-Limit-Status als DTO zurück.
+     * Returns the typed rate limit status as a DTO.
      *
-     * @param string $key Eindeutiger Bezeichner der rate-limitierten Ressource
+     * @param string $key Unique identifier of the rate-limited resource
      */
     public function getTypedStatus(string $key): \Four\RateLimit\RateLimitStatus;
 
     /**
-     * Gibt typisierte Status aller bekannten Keys zurück.
+     * Returns typed statuses of all known keys.
      *
      * @return array<string, \Four\RateLimit\RateLimitStatus>
      */

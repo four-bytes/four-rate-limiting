@@ -13,12 +13,12 @@ use Psr\SimpleCache\CacheInterface;
 /**
  * Sliding Window Rate Limiter
  *
- * Implementiert Sliding-Window-Rate-Limiting für gleichmäßigere Rate-Verteilung.
- * Führt ein rollierendes Zeitfenster mit Requests. Ideal für Discogs API.
+ * Implements sliding-window rate limiting for a more even rate distribution.
+ * Maintains a rolling time window of requests. Ideal for the Discogs API.
  *
  * $this->state[$key] = ['requests' => float[], 'last_request' => ?float]
  *
- * TODO T-03: Bei sehr hoher Last circular buffer erwägen, um array_filter-Overhead zu vermeiden.
+ * TODO T-03: consider a circular buffer under very high load to avoid array_filter overhead.
  */
 class SlidingWindowRateLimiter extends AbstractRateLimiter
 {
@@ -37,7 +37,7 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
 
     protected function hydrateState(array $data): void
     {
-        // Rückwärtskompatibilität: alte State-Dateien nutzen 'windows', neue 'state'
+        // Backward compatibility: old state files use 'windows', new ones 'state'
         $this->state = $data['windows'] ?? $data['state'] ?? [];
         $this->dynamicLimits = $data['dynamic_limits'] ?? [];
         $this->cleanOldEntries();
@@ -104,8 +104,8 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
             if ($waitTimeMs > 0) {
                 usleep($waitTimeMs * 1000);
             } else {
-                // Busy-Loop-Guard: mindestens 1ms warten wenn getWaitTime() 0 sagt
-                // aber isAllowed() trotzdem false (Race-Condition mit Refill)
+                // Busy-loop guard: wait at least 1ms when getWaitTime() returns 0
+                // but isAllowed() is still false (race condition with refill)
                 usleep(1000);
             }
         }
@@ -129,7 +129,7 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
             return 0;
         }
 
-        $oldestRequest = $window['requests'][0]; // Sortiert, re-indexiert durch cleanExpiredRequests
+        $oldestRequest = $window['requests'][0]; // Sorted, re-indexed by cleanExpiredRequests
         $windowSizeSec = $this->config->getWindowSizeMs() / 1000.0;
         $expiryTime = $oldestRequest + $windowSizeSec;
         $waitTime = $expiryTime - microtime(true);
@@ -155,10 +155,10 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
         $limit = $this->getEffectiveLimit($key);
         $requestCount = count($window['requests']);
 
-        // Inline wait-time-Berechnung (vermeidet doppeltes initializeWindow/cleanExpiredRequests)
+        // Inline wait-time calculation (avoids double initializeWindow/cleanExpiredRequests)
         $waitTimeMs = 0;
         if ($requestCount >= $limit && !empty($window['requests'])) {
-            $oldestRequest = $window['requests'][0]; // Sortiert, re-indexiert durch cleanExpiredRequests
+            $oldestRequest = $window['requests'][0]; // Sorted, re-indexed by cleanExpiredRequests
             $windowSizeSec = $this->config->getWindowSizeMs() / 1000.0;
             $expiryTime = $oldestRequest + $windowSizeSec;
             $waitTime = $expiryTime - microtime(true);
@@ -253,7 +253,7 @@ class SlidingWindowRateLimiter extends AbstractRateLimiter
         $cutoff = $now - $windowSizeSec;
 
         $originalCount = count($window['requests']);
-        // TODO T-03: Bei sehr hoher Last circular buffer erwägen
+        // TODO T-03: consider a circular buffer under very high load
         $window['requests'] = array_values(array_filter($window['requests'], fn($timestamp) => $timestamp > $cutoff));
 
         $removedCount = $originalCount - count($window['requests']);
