@@ -168,6 +168,7 @@ class AbstractRateLimiterTest extends TestCase
             RateLimitConfiguration::ALGORITHM_FIXED_WINDOW => new FixedWindowRateLimiter($config, new NullLogger()),
             RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW => new SlidingWindowRateLimiter($config, new NullLogger()),
             RateLimitConfiguration::ALGORITHM_LEAKY_BUCKET => new LeakyBucketRateLimiter($config, new NullLogger()),
+            default => throw new \InvalidArgumentException("Unsupported rate limiter algorithm: {$algorithm}"),
         };
 
         $limiter->isAllowed('key1');
@@ -185,6 +186,7 @@ class AbstractRateLimiterTest extends TestCase
             RateLimitConfiguration::ALGORITHM_FIXED_WINDOW => new FixedWindowRateLimiter($config, new NullLogger()),
             RateLimitConfiguration::ALGORITHM_SLIDING_WINDOW => new SlidingWindowRateLimiter($config, new NullLogger()),
             RateLimitConfiguration::ALGORITHM_LEAKY_BUCKET => new LeakyBucketRateLimiter($config, new NullLogger()),
+            default => throw new \InvalidArgumentException("Unsupported rate limiter algorithm: {$algorithm}"),
         };
 
         $limiter->isAllowed('key1');
