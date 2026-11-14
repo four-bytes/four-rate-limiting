@@ -11,6 +11,7 @@ use Four\RateLimit\Algorithm\SlidingWindowRateLimiter;
 use Four\RateLimit\Algorithm\LeakyBucketRateLimiter;
 use Four\RateLimit\RateLimitConfiguration;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -92,7 +93,6 @@ class AbstractRateLimiterTest extends TestCase
 
         $statuses = $limiter->getAllStatuses();
 
-        $this->assertIsArray($statuses);
         $this->assertArrayHasKey('endpoint1', $statuses);
         $this->assertArrayHasKey('endpoint2', $statuses);
         $this->assertArrayHasKey('algorithm', $statuses['endpoint1']);
@@ -159,7 +159,7 @@ class AbstractRateLimiterTest extends TestCase
     // AbstractRateLimiter applies to all algorithms
     // ---------------------------------------------------------------
 
-    /** @dataProvider allAlgorithmsProvider */
+    #[DataProvider('allAlgorithmsProvider')]
     public function testAllAlgorithmsImplementResetAll(string $algorithm): void
     {
         $config = $this->makeConfig($algorithm);
@@ -177,7 +177,7 @@ class AbstractRateLimiterTest extends TestCase
         $this->assertSame([], $limiter->getAllStatuses());
     }
 
-    /** @dataProvider allAlgorithmsProvider */
+    #[DataProvider('allAlgorithmsProvider')]
     public function testAllAlgorithmsImplementCleanup(string $algorithm): void
     {
         $config = $this->makeConfig($algorithm);
@@ -192,7 +192,7 @@ class AbstractRateLimiterTest extends TestCase
         $limiter->isAllowed('key1');
         $result = $limiter->cleanup(0);
 
-        $this->assertIsInt($result);
+        $this->assertGreaterThanOrEqual(0, $result);
     }
 
     public static function allAlgorithmsProvider(): array
