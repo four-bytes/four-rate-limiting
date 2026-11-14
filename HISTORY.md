@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 - chore: PR template refers to `AGENTS.md` instead of `CLAUDE.md` (#3)
+- chore: `.gitattributes` excludes dev and community files from the Composer dist archive (#4)
 
 ## [1.4.1] — 2026-11-14
 - docs: `LICENSE` is now the unmodified Apache-2.0 text; copyright notice moved to new `NOTICE` (rights holder Four Flames GmbH & Co. KG)
