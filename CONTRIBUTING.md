@@ -45,3 +45,7 @@ vendor/bin/phpcs src tests
 
 By contributing, you agree that your contributions are licensed under the
 Apache License 2.0 (see `LICENSE`).
+
+## Releases
+
+- Releases are tagged `vX.Y.Z` (semantic versioning); older tags without the `v` prefix stay as they are.
