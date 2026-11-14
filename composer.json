@@ -1,6 +1,15 @@
 {
     "name": "four-bytes/four-rate-limiting",
-    "description": "Generic rate limiting library for PHP APIs — Token Bucket, Fixed Window, Sliding Window, Leaky Bucket",
+    "description": "PHP 8.4+ rate limiting library for API clients — token bucket, fixed window, sliding window, leaky bucket",
+    "keywords": [
+        "rate-limiting",
+        "rate-limiter",
+        "throttling",
+        "token-bucket",
+        "sliding-window",
+        "leaky-bucket",
+        "php"
+    ],
     "type": "library",
     "license": "Apache-2.0",
     "authors": [
