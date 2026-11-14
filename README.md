@@ -1,9 +1,26 @@
 # four-rate-limiting
 
-[![PHP Version](https://img.shields.io/badge/php-^8.4-blue.svg)](https://packagist.org/packages/four-bytes/four-rate-limiting)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+Client-side rate limiting for PHP 8.4+ API clients — stay within third-party API limits with four algorithms, response-header tracking and PSR-16 shared state.
 
-Generic rate limiting library for PHP 8.4+. Four algorithms, header-based dynamic tracking, state persistence, PSR-16 cache backend.
+[![Packagist Version](https://img.shields.io/packagist/v/four-bytes/four-rate-limiting)](https://packagist.org/packages/four-bytes/four-rate-limiting)
+[![PHP Version](https://img.shields.io/packagist/dependency-v/four-bytes/four-rate-limiting/php)](https://packagist.org/packages/four-bytes/four-rate-limiting)
+[![License](https://img.shields.io/packagist/l/four-bytes/four-rate-limiting)](LICENSE)
+[![Downloads](https://img.shields.io/packagist/dt/four-bytes/four-rate-limiting)](https://packagist.org/packages/four-bytes/four-rate-limiting)
+
+## Features
+
+- **Four algorithms** — token bucket, fixed window, sliding window, leaky bucket
+- **Header-based tracking** — limits adapt to `X-RateLimit-*` style response headers
+- **Per-endpoint limits** and a configurable safety buffer
+- **State persistence** — JSON state file or any PSR-16 cache (Redis, APCu, Memcached)
+- **HTTP integration** — `RateLimitMiddleware` with 429 retry and exponential backoff
+- **No framework dependency**, no API-specific presets
+
+## Requirements
+
+- PHP 8.4+
+- `psr/simple-cache` ^3.0, `psr/log` ^3.0, `psr/http-message` ^2.0 (installed automatically)
+- Optional: a PSR-16 implementation such as `symfony/cache` for shared state across processes
 
 ## Philosophy
 
@@ -211,6 +228,13 @@ The library automatically normalizes PSR-7 headers (`array<string, string[]>` �
 
 ---
 
+## Error Handling
+
+- `RateLimitConfiguration` throws `\InvalidArgumentException` for an unknown algorithm or out-of-range values (`ratePerSecond`, `burstCapacity`, `safetyBuffer`, `windowSizeMs`, `cleanupIntervalSeconds`).
+- `RateLimiterFactory::create()` throws `\InvalidArgumentException` for an unsupported algorithm.
+- `RateLimitMiddleware::execute()` throws `Four\RateLimit\Exception\RateLimitExceededException` when the wait time exceeds `maxWaitMs` or retries are exhausted; it exposes `key` and `waitTimeMs`.
+- PSR-16 cache failures are caught and logged via the PSR-3 logger; the limiter keeps working with in-memory state.
+
 ## Architecture
 
 ```
@@ -231,14 +255,25 @@ Four\RateLimit\
     └── RateLimitMiddleware       # PSR-18 HTTP client integration
 ```
 
-## Tests
+## Testing
 
 ```bash
-composer test
-composer phpstan
-composer cs-check
+composer test      # PHPUnit 11
+composer phpstan   # PHPStan level 5
+composer cs-check  # PHP_CodeSniffer
 ```
+
+## Related packages
+
+- [`four-bytes/four-http-client`](https://github.com/four-bytes/four-http-client) — PSR-18 client factory and base `ApiClient`; its rate-limiting middleware uses this package
+- API clients built on that foundation, e.g. [`four-bytes/four-lexware-api-client`](https://github.com/four-bytes/four-lexware-api-client) and [`four-bytes/four-discord-client`](https://github.com/four-bytes/four-discord-client)
+
+## Contributing, security, changelog
+
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security: please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md)
+- Changelog: [HISTORY.md](HISTORY.md)
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
