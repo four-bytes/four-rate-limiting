@@ -99,7 +99,6 @@ class TokenBucketRateLimiterTest extends TestCase
 
         $status = $this->rateLimiter->getStatus($this->testKey);
 
-        $this->assertIsArray($status);
         $this->assertArrayHasKey('tokens_available', $status);
         $this->assertArrayHasKey('capacity', $status);
         $this->assertArrayHasKey('rate_per_second', $status);
@@ -141,8 +140,8 @@ class TokenBucketRateLimiterTest extends TestCase
         // This should update dynamic limits (exact behavior depends on implementation)
         $this->rateLimiter->updateFromHeaders($this->testKey, $headers);
 
-        // Should not throw any errors
-        $this->assertTrue(true);
+        // Limiter stays usable after the header update
+        $this->assertArrayHasKey('capacity', $this->rateLimiter->getStatus($this->testKey));
     }
 
     public function testWaitForAllowed(): void
